@@ -103,7 +103,7 @@
 
   <div class="card">
     <h2>Try the routes</h2>
-    <p class="hint">A single request always passes. A burst spends the saved-up tokens. A flood shows the steady-state rate - and a wall of 429s.</p>
+    <p class="hint">A single request passes while its bucket still has tokens - once the bucket is empty, even one request gets a 429. A burst spends the saved-up tokens. A flood shows the steady-state rate: a wall of 429s with only the refill rate getting through.</p>
     <div class="routes">
       <div class="route">
         <div class="method">GET</div>
@@ -137,6 +137,11 @@
     </div>
     <div id="status">Waiting for requests...</div>
   </div>
+
+  <div class="card">
+    <h2>Demo limits, on purpose</h2>
+    <p class="hint">This is a public demo, so it defends itself. The buttons fire at most 150 requests, in batches of 10 so one click never opens hundreds of connections. The server keeps at most 10,000 buckets per route and forgets keys idle for 10 minutes; the chart keeps only the last two minutes. Bucket state and this chart are shared across all of Cloudflare's copies of this worker through a Durable Object, so the limits hold globally - running locally with <code>npm run dev</code> uses per-process memory instead.</p>
+  </div>
 </div>
 
 <script>
@@ -150,19 +155,23 @@ async function fire(name, count) {
   const r = routes[name];
   const statusEl = document.getElementById('status');
   let lastStatus = 0, lastRemaining = '', ok = 0, rejected = 0;
-  const jobs = [];
-  for (let i = 0; i < count; i++) {
-    jobs.push(fetch(r.url, {
-      method: r.method,
-      headers: { 'Content-Type': 'application/json', ...(r.headers || {}) },
-      body: r.body ? JSON.stringify(r.body) : undefined,
-    }).then(res => {
-      lastStatus = res.status;
-      lastRemaining = res.headers.get('X-RateLimit-Remaining');
-      if (res.status === 429) rejected++; else ok++;
-    }).catch(() => { lastStatus = 0; }));
+  // Batches of 10: a public demo page should not fan out hundreds of
+  // concurrent connections from one click.
+  for (let i = 0; i < count; i += 10) {
+    const jobs = [];
+    for (let j = i; j < Math.min(i + 10, count); j++) {
+      jobs.push(fetch(r.url, {
+        method: r.method,
+        headers: { 'Content-Type': 'application/json', ...(r.headers || {}) },
+        body: r.body ? JSON.stringify(r.body) : undefined,
+      }).then(res => {
+        lastStatus = res.status;
+        lastRemaining = res.headers.get('X-RateLimit-Remaining');
+        if (res.status === 429) rejected++; else ok++;
+      }).catch(() => { lastStatus = 0; }));
+    }
+    await Promise.all(jobs);
   }
-  await Promise.all(jobs);
   const cls = rejected > 0 ? 'bad' : 'ok';
   statusEl.innerHTML = `${name}: sent ${count} -> <span class="ok">${ok} allowed</span>, <span class="${cls}">${rejected} rejected</span> | last status ${lastStatus}, X-RateLimit-Remaining: ${lastRemaining}`;
 }

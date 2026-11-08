@@ -5,32 +5,34 @@
 <p>Shubhra's mentor assigned seven system-design problems and asked for two of them to be built properly, well enough to explain in an interview. This is the second: an API rate limiter - the part of a server that enforces "you may call me 100 times a minute; call 101 waits or fails with HTTP 429 Too Many Requests". The other project (URL shortener) is documented separately.</p>
 <p>Everything in sections marked "mentor's ask" comes from his assignment. Design choices, the demo dashboard, and all personal twists are ours, and are labelled as such. Nothing here is copied from a tutorial; every file was written for this project and is explained below.</p>
 
-<h1>2. What exists today (9 Nov 2026, 2 AM IST)</h1>
-<p>A working rate limiter, tested and running locally:</p>
+<h1>2. What exists today (9 Nov 2026, ~2:40 AM IST)</h1>
+<p>A working rate limiter - tested, pushed to GitHub, deployed live, and enforcing shared limits across every copy of the deployment:</p>
 <ul>
 <li>Three rate-limiting algorithms written from scratch in TypeScript: token bucket, fixed window, sliding window.</li>
 <li>An Express middleware that puts any route behind a limit, adds standard rate-limit headers, and rejects floods with a proper 429 response.</li>
 <li>A demo API with three routes limited three different ways, to show limiting is per-route policy.</li>
 <li>A live dark dashboard that charts allowed vs rejected requests per second, with buttons to fire single requests, bursts and floods.</li>
-<li>14 automated tests, all passing, covering the behaviour an interviewer asks about.</li>
+<li>A shared store (Cloudflare Durable Objects) so the limits hold across every copy of the deployed worker; locally the same routes use in-memory state.</li>
+<li>20 automated tests, all passing, covering the behaviour an interviewer asks about - including the shared store.</li>
 </ul>
-<p>Honest status: the code runs locally and every claim above is covered by a test or a live check. The GitHub repository exists but code is not pushed yet (waiting on token permission and a visibility decision). A public live demo on Cloudflare Workers is in preparation, not yet deployed.</p>
+<p>Honest status: every claim above is covered by a test or a live browser check. The GitHub repository is private (Shubhra's choice; it can go public when she says ready) and holds all milestone commits. The demo is live at https://api-rate-limiter.2wf0w2.workers.dev.</p>
 
 <h1>3. The tech stack, tool by tool</h1>
 <p>Every dependency in the project, what it does, why it was chosen, where in the build it appears, and what using something else would change.</p>
 
 <table>
 <tr><td><strong>Tool</strong></td><td><strong>What it is</strong></td><td><strong>Why this one</strong></td><td><strong>Where it is used</strong></td><td><strong>If we used something else</strong></td></tr>
-<tr><td>TypeScript</td><td>JavaScript plus a type system that checks the code before it runs.</td><td>Catches whole classes of bugs at build time (wrong field names, missing values) and makes every data structure self-documenting - important in a project built to be re-read and explained. Also what Shubhra already used in StudyFlow, so skills transfer.</td><td>Every .ts file: the algorithms, the middleware, the demo server.</td><td>Plain JavaScript would run with no build step but lose the safety net and the self-documentation. Heavier languages (Java, Go) would be overkill for a learning project of this size.</td></tr>
-<tr><td>Node.js</td><td>The runtime that executes JavaScript/TypeScript outside a browser.</td><td>The standard runtime for this stack; the same one StudyFlow uses.</td><td>Runs the demo server and the tests.</td><td>Deno or Bun would work but add unfamiliar tooling for no benefit here.</td></tr>
-<tr><td>Express</td><td>The most widely used Node web framework: routing plus middleware.</td><td>Two reasons. The limiter IS middleware, so it needs a framework that has the middleware concept - Express is the reference implementation of that pattern. And Shubhra already knows it from StudyFlow, so the project teaches rate limiting, not a new framework.</td><td>src/demo/server.ts (the demo API) and src/middleware/rateLimit.ts (the limiter itself).</td><td>Fastify or Hono are faster and more modern; either would work with small changes. Express wins on familiarity and on interview recognisability.</td></tr>
-<tr><td>Vitest</td><td>A test runner: executes the files in test/ and reports pass/fail.</td><td>Fast, zero-config with TypeScript and ES modules, and its API matches Jest (which interviewers and employers mention constantly), so learning it transfers directly.</td><td>npm test - all 14 tests in test/.</td><td>Jest needs more configuration for modern TypeScript. Node's built-in test runner works but has a rougher API and weaker assertions.</td></tr>
-<tr><td>tsx</td><td>Runs TypeScript files directly, no compile step, with watch mode.</td><td>Development speed: edit a file, the server reloads. Production deployments compile instead.</td><td>npm run dev / npm start.</td><td>ts-node is older and slower; compiling with tsc then running node adds a step to every edit.</td></tr>
+<tr><td>TypeScript</td><td>JavaScript plus a type system that checks the code before it runs.</td><td>Catches whole classes of bugs at build time (wrong field names, missing values) and makes every data structure self-documenting - important in a project built to be re-read and explained. Also what Shubhra already used in StudyFlow, so skills transfer.</td><td>Every .ts file: the algorithms, the middleware, the demo server, the shared store.</td><td>Plain JavaScript would run with no build step but lose the safety net and the self-documentation. Heavier languages (Java, Go) would be overkill for a learning project of this size.</td></tr>
+<tr><td>Node.js</td><td>The runtime that executes JavaScript/TypeScript outside a browser.</td><td>Runs the demo server and the test suite locally, and gives the clearest stack for learning. The live deployment does not use a Node server: Cloudflare Workers runs the same code through its Node-compatibility layer - the same hosting style as StudyFlow.</td><td>npm run dev and npm test locally.</td><td>Deno or Bun would work but add unfamiliar tooling for no benefit here.</td></tr>
+<tr><td>Express</td><td>A long-established Node web framework built around routing plus middleware.</td><td>Two reasons. The limiter IS middleware, so it needs a framework that has the middleware concept - Express is the reference implementation of that pattern. And Shubhra already knows it from StudyFlow, so the project teaches rate limiting, not a new framework.</td><td>src/demo/server.ts (the demo API) and src/middleware/rateLimit.ts (the limiter itself).</td><td>Fastify and Hono are newer options - Fastify adds built-in request validation, Hono targets edge runtimes directly - and either would work with small changes. Express stays because the limiter is built on its middleware pattern and Shubhra already knows it.</td></tr>
+<tr><td>Vitest</td><td>A test runner: executes the files in test/ and reports pass/fail.</td><td>Zero-config with TypeScript and ES modules, quick to start, and its API matches Jest (which interviewers and employers mention constantly), so learning it transfers directly.</td><td>npm test - all 20 tests in test/.</td><td>Jest needs more configuration for modern TypeScript. Node's built-in test runner works but has a rougher API and weaker assertions.</td></tr>
+<tr><td>tsx</td><td>Runs TypeScript files directly, no compile step, with watch mode.</td><td>Development speed: edit a file, the server reloads. Production deployments compile instead.</td><td>npm run dev / npm start.</td><td>ts-node needs extra configuration for ES modules; compiling with tsc then running node adds a step to every edit.</td></tr>
 <tr><td>supertest</td><td>A library that fires real HTTP requests at an Express app inside tests, without starting a network server.</td><td>Lets the middleware tests assert on actual status codes, headers and JSON bodies - the exact things the limiter contract promises.</td><td>test/middleware.test.ts.</td><td>Could start a real server and use fetch, but that is slower and flakier (ports, timing).</td></tr>
 <tr><td>Vanilla JS + canvas (dashboard)</td><td>The live chart is hand-drawn on an HTML canvas with no chart library.</td><td>The chart is two bar series per second - a chart library (Chart.js, D3) would be a large dependency for twenty lines of drawing, and hand-rolling it means understanding every pixel, which is the point of the project.</td><td>public/index.html.</td><td>Chart.js would give tooltips and animation for free but add a dependency and hide the mechanics. A fair upgrade if the dashboard grows.</td></tr>
-<tr><td>In-memory store (no Redis yet)</td><td>Bucket state lives in a JavaScript Map inside the server process.</td><td>Zero setup, O(1), correct for one server - and the store is hidden behind an interface precisely so Redis can replace it later without touching the limiter code.</td><td>src/core/memoryStore.ts.</td><td>Redis now would add a service to install and run before anything works; premature for stage one. It becomes necessary the moment more than one server shares the limits (explained in section 6).</td></tr>
-<tr><td>Git + GitHub</td><td>Version control and its public home.</td><td>The mentor's brief expects a repository; commit history doubles as the build log. Commits carry proper messages and are pushed at milestones.</td><td>github.com/Shubh12970/API-Rate-Limiter.</td><td>-</td></tr>
-<tr><td>Cloudflare Workers (planned)</td><td>Serverless hosting with a free tier, no credit card.</td><td>Same host as StudyFlow, free, and the account already exists under the assistant email per the hosting rule.</td><td>Deployment step, upcoming.</td><td>Netlify/Vercel fit static sites better than stateful servers; anything requiring a card is ruled out by the free-only rule.</td></tr>
+<tr><td>In-memory store (local runs)</td><td>Bucket state lives in a JavaScript Map inside the server process, capped at 10,000 keys with 10-minute idle eviction.</td><td>Zero setup, O(1), correct for one process - and because the store sits behind an interface, the deployed worker swaps in the shared store without touching the limiter code.</td><td>src/core/memoryStore.ts.</td><td>Using the shared store locally would need a Cloudflare emulator for no local benefit; memory is the honest fit for one process.</td></tr>
+<tr><td>Cloudflare Durable Objects (deployed shared store)</td><td>A named, single-threaded object that every copy of the worker can call, with its own persistent storage.</td><td>The "many servers share limits" answer native to Cloudflare: all isolates spend from the same buckets, and because the object handles one call at a time, the check-and-spend is atomic. Storage persists buckets and the stats feed.</td><td>src/cloud/durableObject.ts and src/cloud/durableObjectLimiter.ts.</td><td>Redis is the classic answer on self-hosted servers and the store interface leaves room for it; on Cloudflare, Durable Objects is the built-in equivalent with no separate service to run.</td></tr>
+<tr><td>Git + GitHub</td><td>Version control and its home.</td><td>The mentor's brief expects a repository; commit history doubles as the build log. Commits carry proper messages and are pushed at milestones. The repo is private at Shubhra's choice until she says make it public.</td><td>github.com/Shubh12970/API-Rate-Limiter.</td><td>-</td></tr>
+<tr><td>Cloudflare Workers</td><td>Serverless hosting with a free tier, no credit card.</td><td>Same host as StudyFlow, free, and the account already exists under the assistant email per the hosting rule.</td><td>Live deployment: src/worker.ts and wrangler.jsonc.</td><td>Netlify/Vercel fit static sites better than stateful servers; anything requiring a card is ruled out by the free-only rule.</td></tr>
 </table>
 
 <h1>4. How the system works</h1>
@@ -39,48 +41,53 @@
 <li>A request arrives at the Express server (for example POST /api/login).</li>
 <li>Before any route logic runs, it passes through the rate-limit middleware. "Middleware" just means code that runs in the middle, before the handler.</li>
 <li>The middleware decides WHO is calling - the key. Reads are keyed by IP address; login is keyed by IP plus username (an attacker guessing passwords has no account yet, so keying by user id would not slow them); the heavy route is keyed by API key.</li>
-<li>The middleware asks the token bucket: does this key have a token? The bucket refills at a steady rate; each request spends one token.</li>
+<li>The middleware asks the token bucket: does this key have a token? Locally the bucket lives in memory; on the live deployment the middleware asks the Durable Object, which runs the exact same decision math against the shared buckets. The bucket refills at a steady rate; each request spends one token.</li>
 <li>Allowed: the request continues to the real route handler, with X-RateLimit-Limit, X-RateLimit-Remaining and X-RateLimit-Reset headers attached so honest clients can pace themselves.</li>
 <li>Rejected: the middleware answers 429 immediately with a Retry-After header and a small JSON body. The route handler never runs, the database is never touched - the flood stops at the gate.</li>
-<li>Every decision is recorded by the stats recorder, and the dashboard page polls it once a second to draw the live allowed-vs-rejected chart.</li>
+<li>Every decision is recorded (locally by the stats recorder; deployed, inside the Durable Object), and the dashboard page polls the stats feed once a second to draw the live allowed-vs-rejected chart.</li>
 </ol>
 
 <h1>5. The three algorithms, and why token bucket won</h1>
 <p><strong>Fixed window</strong> (src/core/fixedWindow.ts) counts requests per clock minute. Simple, but a burst at 10:00:59 and another at 10:01:00 fall in different windows, so twice the limit passes in two seconds. One of the tests proves this with 120 requests accepted under a 60/minute limit. It stays in the project as the baseline to compare against - being able to show its weakness with a test is exactly what an interviewer wants to hear.</p>
 <p><strong>Sliding window log</strong> (src/core/slidingWindow.ts) remembers the timestamp of every recent request and counts them. Accurate, no edge bursts - but memory grows with traffic per caller. Fine at small scale, expensive at large scale.</p>
-<p><strong>Token bucket</strong> (src/core/tokenBucket.ts) gives each caller a bucket holding up to N tokens, refilling at a steady rate. Each request spends one token; empty means wait. It allows short bursts while capping the long-term average, uses two numbers of memory per caller, and is the industry default. This is what protects the demo routes.</p>
+<p><strong>Token bucket</strong> (src/core/tokenBucket.ts) gives each caller a bucket holding up to N tokens, refilling at a steady rate. Each request spends one token; empty means wait. It allows short bursts while capping the long-term average, uses two numbers of memory per caller, and handles bursts and steady rate with a single mechanism - which is why it protects the demo routes. The decision math is one pure function (consumeToken), so the local limiter and the Durable Object run the identical, test-covered code.</p>
 <p>Two details worth noticing in the code: the clock is injected as a parameter, so tests can simulate minutes passing in milliseconds; and a backwards clock jump (a server time correction) is clamped to zero, so time travel can never mint free tokens. Both are test-covered.</p>
 
 <h1>6. Known limits, honestly</h1>
 <ul>
-<li>The in-memory store forgets everything on restart and is invisible to other servers. Two servers behind a load balancer would each enforce only their half of the traffic. The fix is a shared Redis store; the store interface exists precisely so that swap touches one file, not the algorithm. Planned, not built.</li>
+<li>Local in-memory state forgets everything on restart and is invisible to other processes. That is why the deployed worker uses the shared store; npm run dev keeps memory because it is one process.</li>
+<li>The shared store routes every decision through one named Durable Object. That is what makes each check-and-spend atomic, but it also makes the object the single decision point - the same shape of tradeoff as a single Redis primary. For a demo this is the right call; high-traffic systems shard by key.</li>
 <li>Keying by IP is imperfect: many users share a NAT/campus IP, and attackers rotate IPs. Real systems layer keys (IP + account + API key), which the middleware supports through its keyGenerator.</li>
-<li>The dashboard stats live in memory too and reset on restart - it is a teaching instrument, not monitoring.</li>
-<li>Code is not yet on GitHub (token permission pending) and the public demo deployment is upcoming.</li>
+<li>The stats feed keeps only the last two minutes - it is a teaching instrument, not monitoring.</li>
+<li>Everything is bounded so the public demo cannot eat itself: at most 10,000 buckets per store, idle keys evicted after 10 minutes, demo buttons fire at most 150 requests in batches of 10.</li>
 </ul>
 
 <h1>7. Build log, step by step</h1>
-<p><strong>Day 1 - 9 Nov 2026 (early hours, IST)</strong></p>
+<p>Day 1 - 9 Nov 2026 (early hours, IST)</p>
 <ol>
 <li>Chose the stack (section 3) and scaffolded the project: package.json, tsconfig, folder layout.</li>
-<li>Wrote the three algorithms with the store interface and injected clock. Design rule: the core knows nothing about HTTP, so it runs anywhere - a test, any framework, later a Worker.</li>
+<li>Wrote the three algorithms with the store interface and injected clock. Design rule: the core knows nothing about HTTP, so it runs anywhere - a test, any framework, a Worker.</li>
 <li>Wrote the Express middleware: keying, headers, 429 + Retry-After contract.</li>
 <li>Built the demo API with three routes limited three ways (loose read, strict login, per-API-key heavy).</li>
 <li>Built the live dashboard: dark theme, canvas chart, fire/burst/flood buttons.</li>
 <li>Wrote 14 tests. They caught a real bug: the reset-time header was computed before the token was spent, so a spend from a full bucket wrongly reported reset 0. Fixed and re-ran: all green. This is the point of tests, and a good interview anecdote.</li>
 <li>Smoke-tested the live server: headers correct, login route rejects attempts 6-30 with 429, stats endpoint recording.</li>
-<li>Created the GitHub repository. Push blocked by token scope (selected-repository token cannot write new repos); waiting on permission. Commits are safe locally.</li>
+<li>Created the GitHub repository. The first push was blocked by token scope (a selected-repository token cannot write new repos); Shubhra added the new repos to the token, the repo went private at her choice, and the milestone commits were pushed.</li>
+<li>Deployed to Cloudflare Workers and verified the live dashboard in a real browser.</li>
+<li>Built the shared store: Durable Object + DO-backed limiter + per-request pipeline in the worker, with 6 new tests (20 total). Verified live: 20 simulated login attempts produced exactly 5 allowed and 15 rejected, and the global chart totals matched curl checks exactly.</li>
 </ol>
-<p><em>Next steps: push to GitHub once permitted, deploy the demo to Cloudflare Workers, verify the live dashboard visually, then await Shubhra's own feature ideas - this foundation is deliberately clean so her additions have room.</em></p>
+<p>Next: Shubhra's review and her own feature ideas - this foundation is deliberately clean so her additions have room.</p>
 
 <h1>8. How to run it</h1>
-<p>npm install, then npm test to see the 14 tests, then npm run dev and open http://localhost:8787 for the dashboard. The README in the repository repeats this with the API contract.</p>
+<p>npm install, then npm test to see the 20 tests, then npm run dev and open http://localhost:8787 for the dashboard. The deployed version is at https://api-rate-limiter.2wf0w2.workers.dev. The README in the repository repeats this with the API contract.</p>
 
 <h1>9. The interview answer this project buys</h1>
-<p>"Design a rate limiter" - walk through: who is limited (user, IP, API key - and why login limits key on IP plus username), which algorithm (token bucket, and why it beats fixed window - with the edge-burst test as proof), where state lives (memory for one server, Redis when many share limits), what the response looks like (429 with Retry-After and X-RateLimit headers), and how it is tested (at-limit, refill, isolation, burst, clock safety). Each of those sentences has working code and a passing test behind it in this repository.</p>
+<p>"Design a rate limiter" - walk through: who is limited (user, IP, API key - and why login limits key on IP plus username), which algorithm (token bucket, and why it beats fixed window - with the edge-burst test as proof), where state lives (memory for one server, a shared store when many share limits - Durable Objects on Cloudflare, Redis on self-hosted, with the store interface making either swap a one-file change), what the response looks like (429 with Retry-After and X-RateLimit headers), and how it is tested (at-limit, refill, isolation, burst, clock safety, shared-store semantics). Each of those sentences has working code and a passing test behind it in this repository.</p>
 
 <h1>Change history of this document</h1>
 <table>
 <tr><td><strong>When (IST)</strong></td><td><strong>Change</strong></td></tr>
-<tr><td>9 Nov 2026, ~2:10 AM</td><td>First version: project started, core + middleware + demo + dashboard built and tested, docs created. Push to GitHub pending token permission.</td></tr>
+<tr><td>9 Nov 2026, ~2:10 AM</td><td>First version: project started, core + middleware + demo + dashboard built and tested, docs created.</td></tr>
+<tr><td>9 Nov 2026, ~2:16 AM</td><td>Deployment milestone: live on Cloudflare Workers, repo private with both commits pushed.</td></tr>
+<tr><td>9 Nov 2026, ~2:40 AM</td><td>Shared-store milestone: Durable Objects live and verified; stale status passages corrected in place; test count now 20.</td></tr>
 </table>

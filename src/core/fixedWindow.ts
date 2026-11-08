@@ -29,7 +29,7 @@ export class FixedWindowLimiter implements RateLimiter {
     this.now = options.now ?? Date.now;
   }
 
-  consume(key: string): RateLimitResult {
+  async consume(key: string): Promise<RateLimitResult> {
     const now = this.now();
     const windowStartMs = Math.floor(now / this.windowMs) * this.windowMs;
     const windowEndMs = windowStartMs + this.windowMs;

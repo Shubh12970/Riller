@@ -12,6 +12,10 @@
  *
  * A rejected request gets HTTP 429, a Retry-After header, and a small JSON
  * body: { "error": "Too many requests", "retry_after_seconds": N }.
+ *
+ * The handler is async because the limiter may talk to a shared store (the
+ * Durable Object on Cloudflare). Any store failure goes to Express's error
+ * handler via next(err) rather than crashing the process or silently allowing.
  */
 
 import type { NextFunction, Request, Response } from 'express';
@@ -39,25 +43,29 @@ export interface RateLimitOptions {
 export function rateLimit(options: RateLimitOptions) {
   const keyGenerator = options.keyGenerator ?? ((req: Request) => req.ip ?? 'unknown-ip');
 
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const key = keyGenerator(req);
-    const result = options.limiter.consume(key);
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const key = keyGenerator(req);
+      const result = await options.limiter.consume(key);
 
-    res.setHeader('X-RateLimit-Limit', result.limit);
-    res.setHeader('X-RateLimit-Remaining', result.remaining);
-    res.setHeader('X-RateLimit-Reset', result.resetSeconds);
+      res.setHeader('X-RateLimit-Limit', result.limit);
+      res.setHeader('X-RateLimit-Remaining', result.remaining);
+      res.setHeader('X-RateLimit-Reset', result.resetSeconds);
 
-    options.onDecision?.({ route: `${req.method} ${req.baseUrl}${req.path}`, key, result });
+      options.onDecision?.({ route: `${req.method} ${req.baseUrl}${req.path}`, key, result });
 
-    if (!result.allowed) {
-      res.setHeader('Retry-After', result.retryAfterSeconds);
-      res.status(429).json({
-        error: 'Too many requests',
-        retry_after_seconds: result.retryAfterSeconds,
-      });
-      return;
+      if (!result.allowed) {
+        res.setHeader('Retry-After', result.retryAfterSeconds);
+        res.status(429).json({
+          error: 'Too many requests',
+          retry_after_seconds: result.retryAfterSeconds,
+        });
+        return;
+      }
+
+      next();
+    } catch (err) {
+      next(err);
     }
-
-    next();
   };
 }

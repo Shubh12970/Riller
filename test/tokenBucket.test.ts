@@ -21,65 +21,65 @@ function makeLimiter(clock: { now: () => number }, capacity = 5, refillPerSecond
 }
 
 describe('TokenBucketLimiter', () => {
-  it('allows up to capacity, then rejects the next request', () => {
+  it('allows up to capacity, then rejects the next request', async () => {
     const clock = makeClock();
     const limiter = makeLimiter(clock, 5, 1);
     for (let i = 0; i < 5; i++) {
-      expect(limiter.consume('user-1').allowed).toBe(true);
+      expect((await limiter.consume('user-1')).allowed).toBe(true);
     }
-    const sixth = limiter.consume('user-1');
+    const sixth = await limiter.consume('user-1');
     expect(sixth.allowed).toBe(false);
     expect(sixth.retryAfterSeconds).toBeGreaterThanOrEqual(1);
   });
 
-  it('refills tokens over time', () => {
+  it('refills tokens over time', async () => {
     const clock = makeClock();
     const limiter = makeLimiter(clock, 5, 1); // 1 token per second
-    for (let i = 0; i < 5; i++) limiter.consume('user-1');
-    expect(limiter.consume('user-1').allowed).toBe(false);
+    for (let i = 0; i < 5; i++) await limiter.consume('user-1');
+    expect((await limiter.consume('user-1')).allowed).toBe(false);
 
     clock.advanceMs(2_000); // two seconds -> two tokens
-    expect(limiter.consume('user-1').allowed).toBe(true);
-    expect(limiter.consume('user-1').allowed).toBe(true);
-    expect(limiter.consume('user-1').allowed).toBe(false);
+    expect((await limiter.consume('user-1')).allowed).toBe(true);
+    expect((await limiter.consume('user-1')).allowed).toBe(true);
+    expect((await limiter.consume('user-1')).allowed).toBe(false);
   });
 
-  it('caps the sustained rate at the refill rate, even with bursts', () => {
+  it('caps the sustained rate at the refill rate, even with bursts', async () => {
     const clock = makeClock();
     const limiter = makeLimiter(clock, 10, 5); // burst 10, sustained 5/sec
     // Spend the whole burst.
-    for (let i = 0; i < 10; i++) expect(limiter.consume('k').allowed).toBe(true);
+    for (let i = 0; i < 10; i++) expect((await limiter.consume('k')).allowed).toBe(true);
     // Over the next second only 5 more should pass, not 10.
     clock.advanceMs(1_000);
     let allowed = 0;
-    for (let i = 0; i < 10; i++) if (limiter.consume('k').allowed) allowed++;
+    for (let i = 0; i < 10; i++) if ((await limiter.consume('k')).allowed) allowed++;
     expect(allowed).toBe(5);
   });
 
-  it('keeps callers isolated: one flooding user does not block another', () => {
+  it('keeps callers isolated: one flooding user does not block another', async () => {
     const clock = makeClock();
     const limiter = makeLimiter(clock, 2, 1);
-    expect(limiter.consume('flooder').allowed).toBe(true);
-    expect(limiter.consume('flooder').allowed).toBe(true);
-    expect(limiter.consume('flooder').allowed).toBe(false);
+    expect((await limiter.consume('flooder')).allowed).toBe(true);
+    expect((await limiter.consume('flooder')).allowed).toBe(true);
+    expect((await limiter.consume('flooder')).allowed).toBe(false);
     // A different key still has a full bucket.
-    expect(limiter.consume('quiet-user').allowed).toBe(true);
-    expect(limiter.consume('quiet-user').allowed).toBe(true);
+    expect((await limiter.consume('quiet-user')).allowed).toBe(true);
+    expect((await limiter.consume('quiet-user')).allowed).toBe(true);
   });
 
-  it('never creates tokens from a backwards clock jump', () => {
+  it('never creates tokens from a backwards clock jump', async () => {
     const clock = makeClock();
     const limiter = makeLimiter(clock, 1, 60);
-    expect(limiter.consume('k').allowed).toBe(true);
-    expect(limiter.consume('k').allowed).toBe(false);
+    expect((await limiter.consume('k')).allowed).toBe(true);
+    expect((await limiter.consume('k')).allowed).toBe(false);
     clock.advanceMs(-60_000); // NTP correction moves the clock backwards
-    expect(limiter.consume('k').allowed).toBe(false); // no free refill
+    expect((await limiter.consume('k')).allowed).toBe(false); // no free refill
   });
 
-  it('reports remaining and reset for headers', () => {
+  it('reports remaining and reset for headers', async () => {
     const clock = makeClock();
     const limiter = makeLimiter(clock, 3, 1);
-    const first = limiter.consume('k');
+    const first = await limiter.consume('k');
     expect(first.remaining).toBe(2);
     expect(first.resetSeconds).toBeGreaterThan(0);
   });

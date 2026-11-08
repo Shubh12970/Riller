@@ -22,7 +22,7 @@ export class SlidingWindowLimiter implements RateLimiter {
     this.now = options.now ?? Date.now;
   }
 
-  consume(key: string): RateLimitResult {
+  async consume(key: string): Promise<RateLimitResult> {
     const now = this.now();
     const cutoff = now - this.windowMs;
     const log = (this.logs.get(key) ?? []).filter((t) => t > cutoff);
