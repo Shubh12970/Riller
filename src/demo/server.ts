@@ -21,9 +21,42 @@ import { MemoryStore } from '../core/memoryStore.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { StatsRecorder } from './stats.js';
 
+/**
+ * Minimal JSON body parser. Express's built-in express.json() pulls in
+ * body-parser -> raw-body -> iconv-lite, and iconv-lite's stream usage does
+ * not run on Cloudflare Workers. This API only ever accepts UTF-8 JSON, so
+ * twenty lines replace that whole dependency chain and the same code runs on
+ * both Node and Workers. Tradeoff, stated honestly: no charset handling
+ * beyond UTF-8 and no body size limit config (a production API should add
+ * one - a giant body currently buffers whole).
+ */
+function jsonBody() {
+  return (req: express.Request, res: express.Response, next: express.NextFunction): void => {
+    if (req.method !== 'POST' && req.method !== 'PUT' && req.method !== 'PATCH') {
+      next();
+      return;
+    }
+    let data = '';
+    req.setEncoding('utf8');
+    req.on('data', (chunk: string) => { data += chunk; });
+    req.on('end', () => {
+      if (data.length > 0) {
+        try {
+          req.body = JSON.parse(data);
+        } catch {
+          res.status(400).json({ error: 'Invalid JSON body' });
+          return;
+        }
+      }
+      next();
+    });
+    req.on('error', next);
+  };
+}
+
 export function buildApp(stats: StatsRecorder = new StatsRecorder()) {
   const app = express();
-  app.use(express.json());
+  app.use(jsonBody());
 
   const hook = (decision: { result: { allowed: boolean } }) => stats.record(decision.result.allowed);
 
@@ -79,13 +112,28 @@ export function buildApp(stats: StatsRecorder = new StatsRecorder()) {
     res.json(stats.snapshot());
   });
 
-  const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../public');
-  app.use(express.static(publicDir));
+  // Static dashboard files: served by express.static when running on Node.
+  // On Cloudflare Workers, import.meta.url is undefined and the assets binding
+  // in wrangler.jsonc serves public/ instead - so this whole block is skipped.
+  try {
+    const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../public');
+    app.use(express.static(publicDir));
+  } catch {
+    // Workers runtime: no module URL, no local filesystem. Assets binding owns static files.
+  }
 
   return app;
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+function modulePath(): string | null {
+  try {
+    return fileURLToPath(import.meta.url);
+  } catch {
+    return null;
+  }
+}
+
+const isMain = process.argv[1] && modulePath() === path.resolve(process.argv[1]);
 if (isMain) {
   const port = Number(process.env.PORT ?? 8787);
   buildApp().listen(port, () => {

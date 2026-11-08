@@ -1,0 +1,47 @@
+<p>API Rate Limiter - Progress Report</p>
+<p>Living status for mentor project 2 of 2. Updated at every milestone. Companion document: "API Rate Limiter - Documentation" (same folder) explains the how and why; this file tracks the what and when.</p>
+
+<h1>Status at a glance</h1>
+<table>
+<tr><td><strong>Piece</strong></td><td><strong>State (9 Nov 2026, ~2:15 AM IST)</strong></td></tr>
+<tr><td>Core algorithms (token bucket, fixed window, sliding window)</td><td>DONE - written, unit-tested</td></tr>
+<tr><td>Express middleware (headers, 429 + Retry-After, per-route keying)</td><td>DONE - written, integration-tested</td></tr>
+<tr><td>Demo API (3 routes, 3 different limits)</td><td>DONE - smoke-tested live locally</td></tr>
+<tr><td>Live dashboard (allowed vs rejected chart)</td><td>DONE locally - visual check of the deployed version still ahead</td></tr>
+<tr><td>Automated tests</td><td>14/14 passing (vitest)</td></tr>
+<tr><td>GitHub repository</td><td>Created (Shubh12970/API-Rate-Limiter), currently empty - code push waiting on token permission + visibility decision</td></tr>
+<tr><td>Cloudflare Workers live demo</td><td>Upcoming</td></tr>
+<tr><td>Documentation (tech stack, why, alternatives, build log)</td><td>DONE for stage 1, grows with the project</td></tr>
+<tr><td>Shubhra's own feature ideas</td><td>Not started - by design, foundations first so she can see the flow and direct changes</td></tr>
+</table>
+
+<h1>Links</h1>
+<ul>
+<li>Repository: github.com/Shubh12970/API-Rate-Limiter (empty until first push)</li>
+<li>Drive folder: ALL Projects → FULL STACK → API_Rate_Limiter (shubhrajyothsna220@gmail.com)</li>
+<li>Documentation: "API Rate Limiter - Documentation" (this folder)</li>
+</ul>
+
+<h1>Milestones</h1>
+<table>
+<tr><td><strong>#</strong></td><td><strong>Milestone</strong></td><td><strong>Commit message</strong></td><td><strong>State</strong></td></tr>
+<tr><td>M1</td><td>Core algorithms + middleware + demo API + live dashboard + tests</td><td>"Add rate limiter core, Express middleware, demo API and live dashboard"</td><td>Built + tested locally; push pending token permission</td></tr>
+<tr><td>M2</td><td>First GitHub push</td><td>(same as M1)</td><td>WAITING - token cannot write to new repos; permission ask sent</td></tr>
+<tr><td>M3</td><td>Cloudflare Workers deployment + live link</td><td>-</td><td>In preparation</td></tr>
+<tr><td>M4</td><td>Redis-backed store (multi-server)</td><td>-</td><td>Planned, not started</td></tr>
+<tr><td>M5</td><td>Shubhra's own features / changes</td><td>-</td><td>Awaiting her review of the working foundation</td></tr>
+</table>
+
+<h1>Waiting on</h1>
+<ul>
+<li>GitHub token permission: the saved token can create repos but cannot push to new ones. One fix covers both new projects (ask being delivered on WhatsApp).</li>
+<li>Repository visibility: created public by default; code stays unpublished until Shubhra confirms.</li>
+</ul>
+
+<h1>Change log</h1>
+<table>
+<tr><td><strong>When (IST)</strong></td><td><strong>What happened</strong></td></tr>
+<tr><td>9 Nov 2026, ~2:05 AM</td><td>Project started. Stack chosen, scaffold up.</td></tr>
+<tr><td>9 Nov 2026, ~2:07 AM</td><td>M1 built: 3 algorithms, middleware, demo API, dashboard, 14 tests passing (tests caught and fixed a real reset-time bug). Repo created. Push blocked by token scope.</td></tr>
+<tr><td>9 Nov 2026, ~2:10 AM</td><td>Drive folder created; dark Documentation doc written and verified page by page; this Progress Report created.</td></tr>
+</table>
