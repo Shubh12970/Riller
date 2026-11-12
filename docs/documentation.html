@@ -1,4 +1,4 @@
-<p>API Rate Limiter - Project Documentation
+<p>Riller (API Rate Limiter) - Project Documentation
 </p>
 <p>Mentor project 2 of 2. Owner: Shubhra Jyothsna. Started 9 Nov 2026. This document explains what is built, how it works, and why every tool in it was chosen over the alternatives. It grows as the project grows.
 </p>
@@ -23,7 +23,7 @@
 </li><li>A shared store (Cloudflare Durable Objects) so the limits hold across every copy of the deployed worker; locally the same routes use in-memory state.
 </li><li>20 automated tests, all passing, covering the behaviour an interviewer asks about - including the shared store.
 </li></ul>
-<p>Honest status: every claim above is covered by a test or a live browser check. The GitHub repository is private (Shubhra&#x27;s choice; it can go public when she says ready) and holds all milestone commits. The demo is live at https://api-rate-limiter.2wf0w2.workers.dev, with bucket state shared across Cloudflare&#x27;s copies through a Durable Object.
+<p>Honest status: every claim above is covered by a test or a live browser check. The GitHub repository is public as Riller (github.com/Shubh12970/Riller, public since 12 Nov 2026) and holds all milestone commits. The demo is live at https://riller.2wf0w2.workers.dev, with bucket state shared across Cloudflare&#x27;s copies through a Durable Object.
 </p>
 <h1>3. The tech stack, tool by tool
 </h1>
@@ -102,7 +102,7 @@
 <td>Git + GitHub</td>
 <td>Version control and its public home.</td>
 <td>The mentor&#x27;s brief expects a repository; commit history doubles as the build log. Commits carry proper messages and are pushed at milestones.</td>
-<td>github.com/Shubh12970/API-Rate-Limiter.</td>
+<td>github.com/Shubh12970/Riller.</td>
 <td>-</td>
 </tr>
 <tr>
@@ -159,7 +159,7 @@
 </p>
 <h1>8. How to run it
 </h1>
-<p>npm install, then npm test to see the 35 tests, then npm run dev and open http://localhost:8787 for the dashboard. The deployed version is at https://api-rate-limiter.2wf0w2.workers.dev. The README in the repository repeats this with the API contract.
+<p>npm install, then npm test to see the 35 tests, then npm run dev and open http://localhost:8787 for the dashboard. The deployed version is at https://riller.2wf0w2.workers.dev. The README in the repository repeats this with the API contract.
 </p>
 <h1>9. The interview answer this project buys
 </h1>
@@ -181,8 +181,8 @@
 </table>
 <h1>Update - 9 Nov 2026, 2:16 AM IST: deployment milestone
 </h1>
-<ul><li>Deployment milestone reached: the demo now runs on Cloudflare Workers at https://api-rate-limiter.2wf0w2.workers.dev (free tier, assistant-email account, no card). Two runtime adaptations were needed, both explained in the code: a small UTF-8 JSON parser replaces Express&#x27;s built-in one (its iconv-lite dependency cannot run on Workers), and static files are served by Workers Static Assets instead of express.static. All 14 tests still pass and the live behaviour was verified in a real browser.
-</li><li>Repository state: private at Shubhra&#x27;s choice (public later when she says ready), with commits c951571 (the whole stage-1 build) and 56560e8 (the deployment) pushed.
+<ul><li>Deployment milestone reached: the demo now runs on Cloudflare Workers at https://riller.2wf0w2.workers.dev (free tier, assistant-email account, no card). Two runtime adaptations were needed, both explained in the code: a small UTF-8 JSON parser replaces Express&#x27;s built-in one (its iconv-lite dependency cannot run on Workers), and static files are served by Workers Static Assets instead of express.static. All 14 tests still pass and the live behaviour was verified in a real browser.
+</li><li>Repository state at the time: private (it went public on 12 Nov 2026, renamed Riller), with commits c951571 (the whole stage-1 build) and 56560e8 (the deployment) pushed.
 </li><li>Update - 9 Nov 2026, 2:31 AM IST: shared-store milestone
 </li><li>The planned shared store is now BUILT and live: a Durable Object (RateLimiterDO) holds all buckets and the stats feed, so every isolate of the worker enforces the same limits and the chart shows global traffic - the per-isolate caveat from the first deployment hour is retired. Verified live: 20 simulated login attempts produced exactly 5 allowed and 15 rejected, and the chart totals matched curl checks exactly. The token-bucket decision runs inside the object in one atomic step, reusing the same tested consumeToken() math as the local limiter. One discovered Cloudflare constraint, documented in src/worker.ts: a Durable Object stub belongs to the request that created it, so the worker builds its Express pipeline per request rather than caching a dead stub. Commit 0453cd6.
 </li></ul>
@@ -400,7 +400,7 @@ next();</pre>
 </p>
 <h2>21.6 curl: checking the deployment from the terminal
 </h2>
-<p><strong>curl</strong> sends requests from the terminal - the same conversations the browser has, but typed. curl -i https://api-rate-limiter.2wf0w2.workers.dev/api/data shows the response WITH headers: you should see HTTP/2 200 and the three X-RateLimit headers. Fire it 31 times quickly and the 31st answers 429 with Retry-After. That is the whole system, verified by hand - exercise 8 has you do exactly this.
+<p><strong>curl</strong> sends requests from the terminal - the same conversations the browser has, but typed. curl -i https://riller.2wf0w2.workers.dev/api/data shows the response WITH headers: you should see HTTP/2 200 and the three X-RateLimit headers. Fire it 31 times quickly and the 31st answers 429 with Retry-After. That is the whole system, verified by hand - exercise 8 has you do exactly this.
 </p>
 <h1>22. Try it yourself
 </h1>
@@ -773,7 +773,7 @@ return { requested: n, limit: k, allowed, rejected: n - allowed, passed: allowed
 </p>
 <p>Tests (test/proof.test.ts): exactly K of N on a local bucket; exactly K of N through the shared store with the input-gate behavior modeled as a queue (storage-touching events serialized - the unit test models the guarantee, the live endpoint demonstrates the real thing); the proof endpoint returns 429 after 10 runs in a minute.
 </p>
-<p>Try it yourself: the Concurrency proof card on the dashboard, or curl -X POST https://api-rate-limiter.2wf0w2.workers.dev/__rl/atomicity-proof - the response explains its own result.
+<p>Try it yourself: the Concurrency proof card on the dashboard, or curl -X POST https://riller.2wf0w2.workers.dev/__rl/atomicity-proof - the response explains its own result.
 </p>
 <p>Update note, 12 Nov 2026, ~12:20 PM IST: sections 29-32 added - the four feature upgrades Shubhra picked from the upgrade menu (tiered plans, cost-based limiting, escalating penalties, the live concurrency proof), each with the mechanism, the code, the alternatives considered, the failure cases and the tests. All four are built, tested (35/35) and live-verified: commits 9ca3d1e (plans + cost-based), 6ff3b05 (jail), ca07d44 (concurrency proof), 0fced17 (wording precision).
 </p>
@@ -794,4 +794,6 @@ return { requested: n, limit: k, allowed, rejected: n - allowed, passed: allowed
 <p>Try it yourself: open src/worker.ts and find the single idFromName call. That one argument - &#x27;global&#x27; - is the current design. Write down everything that would have to change if it became idFromName(limiterId), then check your list against the section above.
 </p>
 <p>Update note, 12 Nov 2026, ~12:30 PM IST: section 33 added - the honest scaling picture, written after Shubhra&#x27;s mentor asked how the project would handle lakh-scale usage. No code changed, nothing was load-tested, and the numbers quoted are Cloudflare&#x27;s published limits, not benchmarks of this project.
+</p>
+<p>Update note, 12 Nov 2026, ~12:40 PM IST: the project is renamed Riller and the repo is now public. Repo: github.com/Shubh12970/Riller (the old URL redirects). Live demo: https://riller.2wf0w2.workers.dev (the old api-rate-limiter.2wf0w2.workers.dev address is retired). Shubhra chose to keep her Gmail addresses visible in the commit history.
 </p>

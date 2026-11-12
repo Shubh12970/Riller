@@ -1,4 +1,4 @@
-<p>API Rate Limiter - Progress Report
+<p>Riller (API Rate Limiter) - Progress Report
 </p>
 <p>Living status for mentor project 2 of 2. Updated at every milestone. Companion document: &quot;API Rate Limiter - Documentation&quot; (same folder) explains the how and why; this file tracks the what and when.
 </p>
@@ -33,11 +33,11 @@
 </tr>
 <tr>
 <td>GitHub repository</td>
-<td>PRIVATE (her choice), three milestone commits pushed: c951571, 56560e8, 0453cd6</td>
+<td>PUBLIC as Riller (since 12 Nov 2026), all milestone commits pushed</td>
 </tr>
 <tr>
 <td>Cloudflare Workers live demo</td>
-<td>LIVE - https://api-rate-limiter.2wf0w2.workers.dev</td>
+<td>LIVE - https://riller.2wf0w2.workers.dev</td>
 </tr>
 <tr>
 <td>Documentation (tech stack, why, alternatives, build log)</td>
@@ -50,7 +50,7 @@
 </table>
 <h1>Links
 </h1>
-<ul><li>Repository: github.com/Shubh12970/API-Rate-Limiter (private, all milestones pushed)
+<ul><li>Repository: github.com/Shubh12970/Riller (public since 12 Nov 2026, all milestones pushed)
 </li><li>Drive folder: her private Google Drive folder (API_Rate_Limiter)
 </li><li>Documentation: &quot;API Rate Limiter - Documentation&quot; (this folder)
 </li></ul>
@@ -100,7 +100,7 @@
 </table>
 <h1>Waiting on
 </h1>
-<ul><li>Nothing external right now. All four chosen feature upgrades are built, tested and live (12 Nov 2026 - see the change log). The repo stays PRIVATE until Shubhra answers the email-history question (her 220 Gmail appears in an old committed doc; her 129 Gmail is the commit-author address). Next after her call: public visibility, then the resume/CV update.
+<ul><li>Nothing external for the limiter. All four chosen feature upgrades are built, tested and live; the repo is PUBLIC as Riller (github.com/Shubh12970/Riller) and the demo runs at riller.2wf0w2.workers.dev. Shubhra chose to keep her Gmail visible in the commit history, so no history rewrite. Next: her review of the updated resume/CV drafts.
 </li></ul>
 <h1>Change log
 </h1>
@@ -126,7 +126,7 @@
 </table>
 <h1>Update - 9 Nov 2026, 2:16 AM IST: live deployment + first pushes
 </h1>
-<ul><li>Milestone 2 DEPLOYED: live demo at https://api-rate-limiter.2wf0w2.workers.dev - verified end to end: rate-limit headers on every response, the login route rejects attempts past 5/minute with 429 + Retry-After, and the live chart records allowed vs rejected traffic (screenshot verified in a real browser).
+<ul><li>Milestone 2 DEPLOYED: live demo at https://riller.2wf0w2.workers.dev - verified end to end: rate-limit headers on every response, the login route rejects attempts past 5/minute with 429 + Retry-After, and the live chart records allowed vs rejected traffic (screenshot verified in a real browser).
 </li><li>GitHub: the repository is PRIVATE (verified: unauthenticated access returns 404) and holds both commits: c951571 (core + middleware + demo + dashboard + 14 tests) and 56560e8 (Workers deployment).
 </li><li>Runtime fix: Express&#x27;s built-in JSON parsing chain (iconv-lite) cannot run on Cloudflare Workers, so the API now uses a small built-for-purpose UTF-8 JSON parser. All 14 tests still pass; behaviour unchanged.
 </li><li>Honest demo caveat: Cloudflare runs several copies of the worker (isolates), each with its own memory, so the chart shows one copy&#x27;s view and very fast floods can split across copies. This is the documented in-memory limitation made visible; the planned shared store fixes it.
@@ -143,4 +143,6 @@
 <h1>Update - 12 Nov 2026, ~12:20 PM IST: the four feature upgrades (M5-M7)
 </h1>
 <p>The four upgrades Shubhra picked on 12 Nov (options 9, 10, 14 and 15 from the upgrade menu) are built, tested and live. M5 (commit 9ca3d1e, &quot;Add tiered API-key plans and cost-based limiting&quot;): /api/ledger serves free (10/min) and pro (100/min) plans with per-tenant buckets and plan-aware 429s; /api/heavy spends 3 tokens per call. Live-verified: the free key exhausts at exactly 10, the pro key continues, the heavy route rejects the 4th call with a 12-second wait. M6 (commit 6ff3b05, &quot;Add escalating penalties (jail) to the login route&quot;): rejections double the block (30s, 60s, ... capped at 30 min), a success forgives, and jail state lives in the shared store so it holds across isolates. Live-verified: the 6th wrong login waits 30s, a different username is unaffected. M7 (commit ca07d44, &quot;Add a live concurrency proof for the shared store&quot;; 0fced17 wording precision): the dashboard&#x27;s Concurrency proof button fires 20 parallel requests at a fresh limit-10 key - exactly 10 allowed, live-verified in a real browser (screenshot saved). The endpoint rate-limits itself to 10 runs/min per visitor. Test suite grew from 20 to 35 tests, all passing; Documentation sections 29-32 teach each upgrade end to end (mechanism, code, alternatives, failure cases, tests).
+</p>
+<p>Update - 12 Nov 2026, ~12:40 PM IST: public + renamed Riller. Shubhra confirmed her Gmail can stay visible in the commit history, so the repo went public with no history rewrite and was renamed Riller (github.com/Shubh12970/Riller; the old URL redirects). The worker was redeployed as riller - the demo now runs at https://riller.2wf0w2.workers.dev, live-verified after the move (free key exhausts at 10 then 429, pro key limit 100, concurrency proof exactly 10/10); the old api-rate-limiter.2wf0w2.workers.dev address is retired (404). Rename commit 3944038.
 </p>
