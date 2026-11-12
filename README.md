@@ -1,4 +1,4 @@
-# API Rate Limiter
+# Riller (API Rate Limiter)
 
 A token-bucket API rate limiter for Express, with per-route limits, tiered
 API-key plans (free/pro), cost-based limiting, escalating anti-abuse
@@ -8,7 +8,7 @@ deployments, and a fully tested core. Built to learn - and to be able to
 explain - the classic "design a rate limiter" system-design interview
 question with working code behind it.
 
-**Live demo:** https://api-rate-limiter.2wf0w2.workers.dev (Cloudflare Workers
+**Live demo:** https://riller.2wf0w2.workers.dev (Cloudflare Workers
 free tier; bucket state shared across instances via a Durable Object)
 
 ## Quick start

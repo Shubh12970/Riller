@@ -1,5 +1,5 @@
 {
-  "name": "api-rate-limiter",
+  "name": "riller",
   "version": "0.1.0",
   "description": "A token-bucket API rate limiter with per-route limits, 429 handling, a live allow/reject dashboard, and a tested core.",
   "type": "module",
