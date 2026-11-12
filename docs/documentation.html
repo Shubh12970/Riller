@@ -1,93 +1,797 @@
-<p>API Rate Limiter - Project Documentation</p>
-<p>Mentor project 2 of 2. Owner: Shubhra Jyothsna. Started 9 Nov 2026. This document explains what is built, how it works, and why every tool in it was chosen over the alternatives. It grows as the project grows.</p>
-
-<h1>1. What this project is</h1>
-<p>Shubhra's mentor assigned seven system-design problems and asked for two of them to be built properly, well enough to explain in an interview. This is the second: an API rate limiter - the part of a server that enforces "you may call me 100 times a minute; call 101 waits or fails with HTTP 429 Too Many Requests". The other project (URL shortener) is documented separately.</p>
-<p>Everything in sections marked "mentor's ask" comes from his assignment. Design choices, the demo dashboard, and all personal twists are ours, and are labelled as such. Nothing here is copied from a tutorial; every file was written for this project and is explained below.</p>
-
-<h1>2. What exists today (9 Nov 2026, ~2:40 AM IST)</h1>
-<p>A working rate limiter - tested, pushed to GitHub, deployed live, and enforcing shared limits across every copy of the deployment:</p>
-<ul>
-<li>Three rate-limiting algorithms written from scratch in TypeScript: token bucket, fixed window, sliding window.</li>
-<li>An Express middleware that puts any route behind a limit, adds standard rate-limit headers, and rejects floods with a proper 429 response.</li>
-<li>A demo API with three routes limited three different ways, to show limiting is per-route policy.</li>
-<li>A live dark dashboard that charts allowed vs rejected requests per second, with buttons to fire single requests, bursts and floods.</li>
-<li>A shared store (Cloudflare Durable Objects) so the limits hold across every copy of the deployed worker; locally the same routes use in-memory state.</li>
-<li>20 automated tests, all passing, covering the behaviour an interviewer asks about - including the shared store.</li>
-</ul>
-<p>Honest status: every claim above is covered by a test or a live browser check. The GitHub repository is private (Shubhra's choice; it can go public when she says ready) and holds all milestone commits. The demo is live at https://api-rate-limiter.2wf0w2.workers.dev.</p>
-
-<h1>3. The tech stack, tool by tool</h1>
-<p>Every dependency in the project, what it does, why it was chosen, where in the build it appears, and what using something else would change.</p>
-
+<p>API Rate Limiter - Project Documentation
+</p>
+<p>Mentor project 2 of 2. Owner: Shubhra Jyothsna. Started 9 Nov 2026. This document explains what is built, how it works, and why every tool in it was chosen over the alternatives. It grows as the project grows.
+</p>
+<p><strong>Complete beginner? Start at section 10.
+</strong></p>
+<p>Sections 10-27 teach this project from the ground up - terms are explained when they first appear, the build is walked step by step, and every source file is covered. Sections 1-9 below are the reference summary to come back to afterwards.
+</p>
+<h1>1. What this project is
+</h1>
+<p>Shubhra&#x27;s mentor assigned seven system-design problems and asked for two of them to be built properly, well enough to explain in an interview. This is the second: an API rate limiter - the part of a server that enforces &quot;you may call me 100 times a minute; call 101 waits or fails with HTTP 429 Too Many Requests&quot;. The other project (URL shortener) is documented separately.
+</p>
+<p>Everything in sections marked &quot;mentor&#x27;s ask&quot; comes from his assignment. Design choices, the demo dashboard, and all personal twists are ours, and are labelled as such. Nothing here is copied from a tutorial; every file was written for this project and is explained below.
+</p>
+<h1>2. What exists today (9 Nov 2026, ~2:31 AM IST)
+</h1>
+<p>A working rate limiter - tested, pushed to GitHub, deployed live, and enforcing shared limits across every copy of the deployment:
+</p>
+<ul><li>Three rate-limiting algorithms written from scratch in TypeScript: token bucket, fixed window, sliding window.
+</li><li>An Express middleware that puts any route behind a limit, adds standard rate-limit headers, and rejects floods with a proper 429 response.
+</li><li>A demo API with three routes limited three different ways, to show limiting is per-route policy.
+</li><li>A live dark dashboard that charts allowed vs rejected requests per second, with buttons to fire single requests, bursts and floods.
+</li><li>A shared store (Cloudflare Durable Objects) so the limits hold across every copy of the deployed worker; locally the same routes use in-memory state.
+</li><li>20 automated tests, all passing, covering the behaviour an interviewer asks about - including the shared store.
+</li></ul>
+<p>Honest status: every claim above is covered by a test or a live browser check. The GitHub repository is private (Shubhra&#x27;s choice; it can go public when she says ready) and holds all milestone commits. The demo is live at https://api-rate-limiter.2wf0w2.workers.dev, with bucket state shared across Cloudflare&#x27;s copies through a Durable Object.
+</p>
+<h1>3. The tech stack, tool by tool
+</h1>
+<p>Every dependency in the project, what it does, why it was chosen, where in the build it appears, and what using something else would change.
+</p>
 <table>
-<tr><td><strong>Tool</strong></td><td><strong>What it is</strong></td><td><strong>Why this one</strong></td><td><strong>Where it is used</strong></td><td><strong>If we used something else</strong></td></tr>
-<tr><td>TypeScript</td><td>JavaScript plus a type system that checks the code before it runs.</td><td>Catches whole classes of bugs at build time (wrong field names, missing values) and makes every data structure self-documenting - important in a project built to be re-read and explained. Also what Shubhra already used in StudyFlow, so skills transfer.</td><td>Every .ts file: the algorithms, the middleware, the demo server, the shared store.</td><td>Plain JavaScript would run with no build step but lose the safety net and the self-documentation. Heavier languages (Java, Go) would be overkill for a learning project of this size.</td></tr>
-<tr><td>Node.js</td><td>The runtime that executes JavaScript/TypeScript outside a browser.</td><td>Runs the demo server and the test suite locally, and gives the clearest stack for learning. The live deployment does not use a Node server: Cloudflare Workers runs the same code through its Node-compatibility layer - the same hosting style as StudyFlow.</td><td>npm run dev and npm test locally.</td><td>Deno or Bun would work but add unfamiliar tooling for no benefit here.</td></tr>
-<tr><td>Express</td><td>A long-established Node web framework built around routing plus middleware.</td><td>Two reasons. The limiter IS middleware, so it needs a framework that has the middleware concept - Express is the reference implementation of that pattern. And Shubhra already knows it from StudyFlow, so the project teaches rate limiting, not a new framework.</td><td>src/demo/server.ts (the demo API) and src/middleware/rateLimit.ts (the limiter itself).</td><td>Fastify and Hono are newer options - Fastify adds built-in request validation, Hono targets edge runtimes directly - and either would work with small changes. Express stays because the limiter is built on its middleware pattern and Shubhra already knows it.</td></tr>
-<tr><td>Vitest</td><td>A test runner: executes the files in test/ and reports pass/fail.</td><td>Zero-config with TypeScript and ES modules, quick to start, and its API matches Jest (which interviewers and employers mention constantly), so learning it transfers directly.</td><td>npm test - all 20 tests in test/.</td><td>Jest needs more configuration for modern TypeScript. Node's built-in test runner works but has a rougher API and weaker assertions.</td></tr>
-<tr><td>tsx</td><td>Runs TypeScript files directly, no compile step, with watch mode.</td><td>Development speed: edit a file, the server reloads. Production deployments compile instead.</td><td>npm run dev / npm start.</td><td>ts-node needs extra configuration for ES modules; compiling with tsc then running node adds a step to every edit.</td></tr>
-<tr><td>supertest</td><td>A library that fires real HTTP requests at an Express app inside tests, without starting a network server.</td><td>Lets the middleware tests assert on actual status codes, headers and JSON bodies - the exact things the limiter contract promises.</td><td>test/middleware.test.ts.</td><td>Could start a real server and use fetch, but that is slower and flakier (ports, timing).</td></tr>
-<tr><td>Vanilla JS + canvas (dashboard)</td><td>The live chart is hand-drawn on an HTML canvas with no chart library.</td><td>The chart is two bar series per second - a chart library (Chart.js, D3) would be a large dependency for twenty lines of drawing, and hand-rolling it means understanding every pixel, which is the point of the project.</td><td>public/index.html.</td><td>Chart.js would give tooltips and animation for free but add a dependency and hide the mechanics. A fair upgrade if the dashboard grows.</td></tr>
-<tr><td>In-memory store (local runs)</td><td>Bucket state lives in a JavaScript Map inside the server process, capped at 10,000 keys with 10-minute idle eviction.</td><td>Zero setup, O(1), correct for one process - and because the store sits behind an interface, the deployed worker swaps in the shared store without touching the limiter code.</td><td>src/core/memoryStore.ts.</td><td>Using the shared store locally would need a Cloudflare emulator for no local benefit; memory is the honest fit for one process.</td></tr>
-<tr><td>Cloudflare Durable Objects (deployed shared store)</td><td>A named, single-threaded object that every copy of the worker can call, with its own persistent storage.</td><td>The "many servers share limits" answer native to Cloudflare: all isolates spend from the same buckets, and because the object handles one call at a time, the check-and-spend is atomic. Storage persists buckets and the stats feed.</td><td>src/cloud/durableObject.ts and src/cloud/durableObjectLimiter.ts.</td><td>Redis is the classic answer on self-hosted servers and the store interface leaves room for it; on Cloudflare, Durable Objects is the built-in equivalent with no separate service to run.</td></tr>
-<tr><td>Git + GitHub</td><td>Version control and its home.</td><td>The mentor's brief expects a repository; commit history doubles as the build log. Commits carry proper messages and are pushed at milestones. The repo is private at Shubhra's choice until she says make it public.</td><td>github.com/Shubh12970/API-Rate-Limiter.</td><td>-</td></tr>
-<tr><td>Cloudflare Workers</td><td>Serverless hosting with a free tier, no credit card.</td><td>Same host as StudyFlow, free, and the account already exists under the assistant email per the hosting rule.</td><td>Live deployment: src/worker.ts and wrangler.jsonc.</td><td>Netlify/Vercel fit static sites better than stateful servers; anything requiring a card is ruled out by the free-only rule.</td></tr>
+<tr>
+<td><strong>Tool
+</strong></td>
+<td><strong>What it is
+</strong></td>
+<td><strong>Why this one
+</strong></td>
+<td><strong>Where it is used
+</strong></td>
+<td><strong>If we used something else
+</strong></td>
+</tr>
+<tr>
+<td>TypeScript</td>
+<td>JavaScript plus a type system that checks the code before it runs.</td>
+<td>Catches whole classes of bugs at build time (wrong field names, missing values) and makes every data structure self-documenting - important in a project built to be re-read and explained. Also what Shubhra already used in StudyFlow, so skills transfer.</td>
+<td>Every .ts file: the algorithms, the middleware, the demo server.</td>
+<td>Plain JavaScript would run with no build step but lose the safety net and the self-documentation. Heavier languages (Java, Go) would be overkill for a learning project of this size.</td>
+</tr>
+<tr>
+<td>Node.js</td>
+<td>The runtime that executes JavaScript/TypeScript outside a browser.</td>
+<td>Runs the demo server and the test suite locally, and gives the clearest stack for learning. The live deployment does not use a Node server: Cloudflare Workers runs the same code through its Node-compatibility layer - the same hosting style as StudyFlow.</td>
+<td>npm run dev and npm test locally.</td>
+<td>Deno or Bun would work but add unfamiliar tooling for no benefit here.</td>
+</tr>
+<tr>
+<td>Express</td>
+<td>A long-established Node web framework built around routing plus middleware.</td>
+<td>Two reasons. The limiter IS middleware, so it needs a framework that has the middleware concept - Express is the reference implementation of that pattern. And Shubhra already knows it from StudyFlow, so the project teaches rate limiting, not a new framework.</td>
+<td>src/demo/server.ts (the demo API) and src/middleware/rateLimit.ts (the limiter itself).</td>
+<td>Fastify and Hono are newer options - Fastify adds built-in request validation, Hono targets edge runtimes directly - and either would work with small changes. Express stays because the limiter is built on its middleware pattern and Shubhra already knows it.</td>
+</tr>
+<tr>
+<td>Vitest</td>
+<td>A test runner: executes the files in test/ and reports pass/fail.</td>
+<td>Zero-config with TypeScript and ES modules, quick to start, and its API matches Jest (which interviewers and employers mention constantly), so learning it transfers directly.</td>
+<td>npm test - all 20 tests in test/.</td>
+<td>Jest needs more configuration for modern TypeScript. Node&#x27;s built-in test runner works but has a rougher API and weaker assertions.</td>
+</tr>
+<tr>
+<td>tsx</td>
+<td>Runs TypeScript files directly, no compile step, with watch mode.</td>
+<td>Development speed: edit a file, the server reloads. Production deployments compile instead.</td>
+<td>npm run dev / npm start.</td>
+<td>ts-node needs extra configuration for ES modules; compiling with tsc then running node adds a step to every edit.</td>
+</tr>
+<tr>
+<td>supertest</td>
+<td>A library that fires real HTTP requests at an Express app inside tests, without starting a network server.</td>
+<td>Lets the middleware tests assert on actual status codes, headers and JSON bodies - the exact things the limiter contract promises.</td>
+<td>test/middleware.test.ts.</td>
+<td>Could start a real server and use fetch, but that is slower and flakier (ports, timing).</td>
+</tr>
+<tr>
+<td>Vanilla JS + canvas (dashboard)</td>
+<td>The live chart is hand-drawn on an HTML canvas with no chart library.</td>
+<td>The chart is two bar series per second - a chart library (Chart.js, D3) would be a large dependency for twenty lines of drawing, and hand-rolling it means understanding every pixel, which is the point of the project.</td>
+<td>public/index.html.</td>
+<td>Chart.js would give tooltips and animation for free but add a dependency and hide the mechanics. A fair upgrade if the dashboard grows.</td>
+</tr>
+<tr>
+<td>In-memory store (local) + Durable Objects (deployed)</td>
+<td>Bucket state lives in a JavaScript Map inside the server process (local) or in the Durable Object (deployed).</td>
+<td>Zero setup, O(1), correct for one process - and because the store sits behind an interface, the deployed worker swaps in the shared store without touching the limiter code.</td>
+<td>src/core/memoryStore.ts.</td>
+<td>Redis remains the classic answer on self-hosted servers and the interface leaves room for it; on Cloudflare, Durable Objects is the native equivalent - now built (src/cloud/).</td>
+</tr>
+<tr>
+<td>Git + GitHub</td>
+<td>Version control and its public home.</td>
+<td>The mentor&#x27;s brief expects a repository; commit history doubles as the build log. Commits carry proper messages and are pushed at milestones.</td>
+<td>github.com/Shubh12970/API-Rate-Limiter.</td>
+<td>-</td>
+</tr>
+<tr>
+<td>Cloudflare Workers + Durable Objects</td>
+<td>Serverless hosting with a free tier, no credit card.</td>
+<td>Same host as StudyFlow, free, and the account already exists under the assistant email per the hosting rule.</td>
+<td>Live deployment: src/worker.ts, src/cloud/, wrangler.jsonc.</td>
+<td>Netlify/Vercel fit static sites better than stateful servers; anything requiring a card is ruled out by the free-only rule.</td>
+</tr>
 </table>
-
-<h1>4. How the system works</h1>
-<p>The request flow, end to end:</p>
-<ol>
-<li>A request arrives at the Express server (for example POST /api/login).</li>
-<li>Before any route logic runs, it passes through the rate-limit middleware. "Middleware" just means code that runs in the middle, before the handler.</li>
-<li>The middleware decides WHO is calling - the key. Reads are keyed by IP address; login is keyed by IP plus username (an attacker guessing passwords has no account yet, so keying by user id would not slow them); the heavy route is keyed by API key.</li>
-<li>The middleware asks the token bucket: does this key have a token? Locally the bucket lives in memory; on the live deployment the middleware asks the Durable Object, which runs the exact same decision math against the shared buckets. The bucket refills at a steady rate; each request spends one token.</li>
-<li>Allowed: the request continues to the real route handler, with X-RateLimit-Limit, X-RateLimit-Remaining and X-RateLimit-Reset headers attached so honest clients can pace themselves.</li>
-<li>Rejected: the middleware answers 429 immediately with a Retry-After header and a small JSON body. The route handler never runs, the database is never touched - the flood stops at the gate.</li>
-<li>Every decision is recorded (locally by the stats recorder; deployed, inside the Durable Object), and the dashboard page polls the stats feed once a second to draw the live allowed-vs-rejected chart.</li>
-</ol>
-
-<h1>5. The three algorithms, and why token bucket won</h1>
-<p><strong>Fixed window</strong> (src/core/fixedWindow.ts) counts requests per clock minute. Simple, but a burst at 10:00:59 and another at 10:01:00 fall in different windows, so twice the limit passes in two seconds. One of the tests proves this with 120 requests accepted under a 60/minute limit. It stays in the project as the baseline to compare against - being able to show its weakness with a test is exactly what an interviewer wants to hear.</p>
-<p><strong>Sliding window log</strong> (src/core/slidingWindow.ts) remembers the timestamp of every recent request and counts them. Accurate, no edge bursts - but memory grows with traffic per caller. Fine at small scale, expensive at large scale.</p>
-<p><strong>Token bucket</strong> (src/core/tokenBucket.ts) gives each caller a bucket holding up to N tokens, refilling at a steady rate. Each request spends one token; empty means wait. It allows short bursts while capping the long-term average, uses two numbers of memory per caller, and handles bursts and steady rate with a single mechanism - which is why it protects the demo routes. The decision math is one pure function (consumeToken), so the local limiter and the Durable Object run the identical, test-covered code.</p>
-<p>Two details worth noticing in the code: the clock is injected as a parameter, so tests can simulate minutes passing in milliseconds; and a backwards clock jump (a server time correction) is clamped to zero, so time travel can never mint free tokens. Both are test-covered.</p>
-
-<h1>6. Known limits, honestly</h1>
-<ul>
-<li>Local in-memory state forgets everything on restart and is invisible to other processes. That is why the deployed worker uses the shared store; npm run dev keeps memory because it is one process.</li>
-<li>The shared store routes every decision through one named Durable Object. That is what makes each check-and-spend atomic, but it also makes the object the single decision point - the same shape of tradeoff as a single Redis primary. For a demo this is the right call; high-traffic systems shard by key.</li>
-<li>Keying by IP is imperfect: many users share a NAT/campus IP, and attackers rotate IPs. Real systems layer keys (IP + account + API key), which the middleware supports through its keyGenerator.</li>
-<li>The stats feed keeps only the last two minutes - it is a teaching instrument, not monitoring.</li>
-<li>Everything is bounded so the public demo cannot eat itself: at most 10,000 buckets per store, idle keys evicted after 10 minutes, demo buttons fire at most 150 requests in batches of 10.</li>
-</ul>
-
-<h1>7. Build log, step by step</h1>
-<p>Day 1 - 9 Nov 2026 (early hours, IST)</p>
-<ol>
-<li>Chose the stack (section 3) and scaffolded the project: package.json, tsconfig, folder layout.</li>
-<li>Wrote the three algorithms with the store interface and injected clock. Design rule: the core knows nothing about HTTP, so it runs anywhere - a test, any framework, a Worker.</li>
-<li>Wrote the Express middleware: keying, headers, 429 + Retry-After contract.</li>
-<li>Built the demo API with three routes limited three ways (loose read, strict login, per-API-key heavy).</li>
-<li>Built the live dashboard: dark theme, canvas chart, fire/burst/flood buttons.</li>
-<li>Wrote 14 tests. They caught a real bug: the reset-time header was computed before the token was spent, so a spend from a full bucket wrongly reported reset 0. Fixed and re-ran: all green. This is the point of tests, and a good interview anecdote.</li>
-<li>Smoke-tested the live server: headers correct, login route rejects attempts 6-30 with 429, stats endpoint recording.</li>
-<li>Created the GitHub repository. The first push was blocked by token scope (a selected-repository token cannot write new repos); Shubhra added the new repos to the token, the repo went private at her choice, and the milestone commits were pushed.</li>
-<li>Deployed to Cloudflare Workers and verified the live dashboard in a real browser.</li>
-<li>Built the shared store: Durable Object + DO-backed limiter + per-request pipeline in the worker, with 6 new tests (20 total). Verified live: 20 simulated login attempts produced exactly 5 allowed and 15 rejected, and the global chart totals matched curl checks exactly.</li>
-</ol>
-<p>Next: Shubhra's review and her own feature ideas - this foundation is deliberately clean so her additions have room.</p>
-
-<h1>8. How to run it</h1>
-<p>npm install, then npm test to see the 20 tests, then npm run dev and open http://localhost:8787 for the dashboard. The deployed version is at https://api-rate-limiter.2wf0w2.workers.dev. The README in the repository repeats this with the API contract.</p>
-
-<h1>9. The interview answer this project buys</h1>
-<p>"Design a rate limiter" - walk through: who is limited (user, IP, API key - and why login limits key on IP plus username), which algorithm (token bucket, and why it beats fixed window - with the edge-burst test as proof), where state lives (memory for one server, a shared store when many share limits - Durable Objects on Cloudflare, Redis on self-hosted, with the store interface making either swap a one-file change), what the response looks like (429 with Retry-After and X-RateLimit headers), and how it is tested (at-limit, refill, isolation, burst, clock safety, shared-store semantics). Each of those sentences has working code and a passing test behind it in this repository.</p>
-
-<h1>Change history of this document</h1>
+<h1>4. How the system works
+</h1>
+<p>The request flow, end to end:
+</p>
+<ul><li>A request arrives at the Express server (for example POST /api/login).
+</li><li>Before any route logic runs, it passes through the rate-limit middleware. &quot;Middleware&quot; just means code that runs in the middle, before the handler.
+</li><li>The middleware decides WHO is calling - the key. Reads are keyed by IP address; login is keyed by IP plus username (an attacker guessing passwords has no account yet, so keying by user id would not slow them); the heavy route is keyed by API key.
+</li><li>The middleware asks the token bucket: does this key have a token? Locally the bucket lives in memory; on the live deployment the middleware asks the Durable Object, which runs the exact same decision math against the shared buckets. The bucket refills at a steady rate; each request spends one token.
+</li><li>Allowed: the request continues to the real route handler, with X-RateLimit-Limit, X-RateLimit-Remaining and X-RateLimit-Reset headers attached so honest clients can pace themselves.
+</li><li>Rejected: the middleware answers 429 immediately with a Retry-After header and a small JSON body. The route handler never runs, the database is never touched - the flood stops at the gate.
+</li><li>Every decision is recorded by the stats recorder, and the dashboard page polls it once a second to draw the live allowed-vs-rejected chart.
+</li></ul>
+<h1>5. The three algorithms, and why token bucket won
+</h1>
+<p><strong>Fixed window</strong> (src/core/fixedWindow.ts) counts requests per clock minute. Simple, but a burst at 10:00:59 and another at 10:01:00 fall in different windows, so twice the limit passes in two seconds. One of the tests proves this with 120 requests accepted under a 60/minute limit. It stays in the project as the baseline to compare against - being able to show its weakness with a test is exactly what an interviewer wants to hear.
+</p>
+<p><strong>Sliding window log</strong> (src/core/slidingWindow.ts) remembers the timestamp of every recent request and counts them. Accurate, no edge bursts - but memory grows with traffic per caller. Fine at small scale, expensive at large scale.
+</p>
+<p><strong>Token bucket</strong> (src/core/tokenBucket.ts) gives each caller a bucket holding up to N tokens, refilling at a steady rate. Each request spends one token; empty means wait. It allows short bursts while capping the long-term average, uses two numbers of memory per caller, and handles bursts and steady rate with a single mechanism. This is what protects the demo routes. The decision math is one pure function (consumeToken), so the local limiter and the Durable Object run identical, test-covered code.
+</p>
+<p>Two details worth noticing in the code: the clock is injected as a parameter, so tests can simulate minutes passing in milliseconds; and a backwards clock jump (a server time correction) is clamped to zero elapsed, so a backwards jump drains no earned tokens; a forward jump adds some, but only up to the capacity lid. Both are test-covered.
+</p>
+<h1>6. Known limits, honestly
+</h1>
+<ul><li>Local in-memory state forgets everything on restart and is invisible to other processes - which is why the deployed worker uses the shared store. The shared store routes every decision through one named Durable Object: that is what makes each check-and-spend atomic, but it also makes the object the single decision point - the same shape of tradeoff as a single Redis primary. High-traffic systems shard by key; for this project one object is right.
+</li><li>Keying by IP is imperfect: many users share a NAT/campus IP, and attackers rotate IPs. Real systems layer keys (IP + account + API key), which the middleware supports through its keyGenerator.
+</li><li>The dashboard stats live in memory too and reset on restart - it is a teaching instrument, not monitoring.
+</li><li>Everything is bounded so the public demo cannot eat itself: at most 10,000 buckets per store, idle keys evicted after 10 minutes, the chart keeps two minutes, and demo buttons fire at most 150 requests in batches of 10.
+</li></ul>
+<h1>7. Build log, step by step
+</h1>
+<p><strong>Day 1 - 9 Nov 2026 (early hours, IST)
+</strong></p>
+<ul><li>Chose the stack (section 3) and scaffolded the project: package.json, tsconfig, folder layout.
+</li><li>Wrote the three algorithms with the store interface and injected clock. Design rule: the core knows nothing about HTTP, so it runs anywhere - a test, any framework, later a Worker.
+</li><li>Wrote the Express middleware: keying, headers, 429 + Retry-After contract.
+</li><li>Built the demo API with three routes limited three ways (loose read, strict login, per-API-key heavy).
+</li><li>Built the live dashboard: dark theme, canvas chart, fire/burst/flood buttons.
+</li><li>Wrote 14 tests. They caught a real bug: the reset-time header was computed before the token was spent, so a spend from a full bucket wrongly reported reset 0. Fixed and re-ran: all green. This is the point of tests, and a good interview anecdote.
+</li><li>Smoke-tested the live server: headers correct, login route rejects attempts 6-30 with 429, stats endpoint recording.
+</li><li>Created the GitHub repository. The first push was blocked by token scope (a selected-repository token cannot write new repos); Shubhra added the new repos to the token, the repo went private at her choice, and the milestone commits were pushed.
+</li></ul>
+<p>Done since: pushed to GitHub, deployed to Cloudflare Workers, verified the live dashboard in a real browser, and built the Durable Objects shared store with 6 new tests (20 total). Next: Shubhra&#x27;s review and her own feature ideas - this foundation is deliberately clean so her additions have room.
+</p>
+<h1>8. How to run it
+</h1>
+<p>npm install, then npm test to see the 35 tests, then npm run dev and open http://localhost:8787 for the dashboard. The deployed version is at https://api-rate-limiter.2wf0w2.workers.dev. The README in the repository repeats this with the API contract.
+</p>
+<h1>9. The interview answer this project buys
+</h1>
+<p>&quot;Design a rate limiter&quot; - walk through: who is limited (user, IP, API key - and why login limits key on IP plus username), which algorithm (token bucket, and why it beats fixed window - with the edge-burst test as proof), where state lives (memory for one server, a shared store when many share limits - Durable Objects on Cloudflare, Redis on self-hosted), what the response looks like (429 with Retry-After and X-RateLimit headers), and how it is tested (at-limit, refill, isolation, burst, clock safety, shared-store semantics). Each of those sentences has working code and a passing test behind it in this repository.
+</p>
+<h1>Change history of this document
+</h1>
 <table>
-<tr><td><strong>When (IST)</strong></td><td><strong>Change</strong></td></tr>
-<tr><td>9 Nov 2026, ~2:10 AM</td><td>First version: project started, core + middleware + demo + dashboard built and tested, docs created.</td></tr>
-<tr><td>9 Nov 2026, ~2:16 AM</td><td>Deployment milestone: live on Cloudflare Workers, repo private with both commits pushed.</td></tr>
-<tr><td>9 Nov 2026, ~2:40 AM</td><td>Shared-store milestone: Durable Objects live and verified; stale status passages corrected in place; test count now 20.</td></tr>
+<tr>
+<td><strong>When (IST)
+</strong></td>
+<td><strong>Change
+</strong></td>
+</tr>
+<tr>
+<td>9 Nov 2026, ~2:10 AM</td>
+<td>First version: project started, core + middleware + demo + dashboard built and tested, docs created.</td>
+</tr>
 </table>
+<h1>Update - 9 Nov 2026, 2:16 AM IST: deployment milestone
+</h1>
+<ul><li>Deployment milestone reached: the demo now runs on Cloudflare Workers at https://api-rate-limiter.2wf0w2.workers.dev (free tier, assistant-email account, no card). Two runtime adaptations were needed, both explained in the code: a small UTF-8 JSON parser replaces Express&#x27;s built-in one (its iconv-lite dependency cannot run on Workers), and static files are served by Workers Static Assets instead of express.static. All 14 tests still pass and the live behaviour was verified in a real browser.
+</li><li>Repository state: private at Shubhra&#x27;s choice (public later when she says ready), with commits c951571 (the whole stage-1 build) and 56560e8 (the deployment) pushed.
+</li><li>Update - 9 Nov 2026, 2:31 AM IST: shared-store milestone
+</li><li>The planned shared store is now BUILT and live: a Durable Object (RateLimiterDO) holds all buckets and the stats feed, so every isolate of the worker enforces the same limits and the chart shows global traffic - the per-isolate caveat from the first deployment hour is retired. Verified live: 20 simulated login attempts produced exactly 5 allowed and 15 rejected, and the chart totals matched curl checks exactly. The token-bucket decision runs inside the object in one atomic step, reusing the same tested consumeToken() math as the local limiter. One discovered Cloudflare constraint, documented in src/worker.ts: a Durable Object stub belongs to the request that created it, so the worker builds its Express pipeline per request rather than caching a dead stub. Commit 0453cd6.
+</li></ul>
+<h1>10. Start here: the beginner path
+</h1>
+<p>This part of the document is written for a complete beginner. It assumes nothing except that you have a computer and can open a terminal. Every term is explained the first time it appears, before anything else uses it. If a section ever mentions something you do not recognize, the explanation is in an earlier section - that is a promise of how this part is organized, so if something is unclear, re-read the section before it.
+</p>
+<p><strong>How to use this part.</strong> Read the sections in order, 10 through 24. Do not skim the code walks - they are the point. After each step, run the small &#x27;what you should see&#x27; check on your own machine, and do the exercises in section 22. By the end you will know this project the way its builder does: you will be able to trace one request from the browser to the rate limiter and back, explain why every file exists, and change the code without guessing.
+</p>
+<p><strong>How this fits the rest of the document.</strong> Sections 1-9 above are the reference version: what exists, the stack table, the interview answer. Sections 10-24 are the learning path: the same project, taught from zero. Built features and possible future ideas are always marked as such - section 24 collects what is deliberately NOT built yet.
+</p>
+<h1>11. The web basics every piece stands on
+</h1>
+<p>Before any code, six ideas. Every later section uses them.
+</p>
+<h2>11.1 What a server and a client are
+</h2>
+<p>A <strong>server</strong> is a program running on a computer that waits for other programs to ask it for things. A <strong>client</strong> is the program that asks. Your browser is a client. In this project, the server is a small program we wrote, and the clients are your browser and a command-line tool called curl (explained in 21.6). When you open the demo page, your browser asks our server for the page; when you click a fire button, your browser asks our server for data.
+</p>
+<h2>11.2 What an API is
+</h2>
+<p>An <strong>API</strong> (application programming interface) is the set of questions a server agrees to answer, and the shape of the answers. This project&#x27;s demo API agrees to answer three questions: GET /api/data (give me some data), POST /api/login (check a login), GET /api/heavy (do something expensive). Each question is called an <strong>endpoint</strong> or a <strong>route</strong>. The rate limiter exists to control how often any one client may ask.
+</p>
+<h2>11.3 Requests and responses
+</h2>
+<p>Every API conversation is one <strong>request</strong> and one <strong>response</strong>. A request has four parts: a <strong>method</strong> (what kind of asking: GET means &#x27;read something&#x27;, POST means &#x27;send something&#x27;), a <strong>path</strong> (which endpoint, like /api/login), <strong>headers</strong> (small labelled notes about the request, like x-api-key: demo-key-1), and sometimes a <strong>body</strong> (the actual content sent, like the username and password). A response has a <strong>status code</strong> (a number that says how it went), headers, and a body.
+</p>
+<p>Status codes you will see in this project: <strong>200</strong> means OK, <strong>400</strong> means &#x27;your request was malformed&#x27;, <strong>401</strong> means &#x27;not logged in / wrong credentials&#x27;, <strong>404</strong> means &#x27;no such thing&#x27;, <strong>429</strong> means &#x27;too many requests - slow down&#x27;, <strong>500</strong> means &#x27;the server itself failed&#x27;. The rate limiter&#x27;s whole job is to answer 429 at the right moments.
+</p>
+<h2>11.4 JSON
+</h2>
+<p><strong>JSON</strong> (JavaScript Object Notation) is the text format the bodies use. It looks like this: {&quot;username&quot;: &quot;demo-user&quot;, &quot;password&quot;: &quot;wrong-on-purpose&quot;}. It is just labelled values written as text: names in quotes, a colon, then the value. Servers like ours read it with JSON.parse and write it with JSON.stringify.
+</p>
+<h2>11.5 Why rate limits exist at all
+</h2>
+<p>Three reasons, and the demo has one route for each. First, <strong>protection</strong>: a server has limited capacity, so no single client should be able to use all of it (the /api/data route). Second, <strong>security</strong>: a login endpoint without a limit lets an attacker try millions of passwords (the /api/login route). Third, <strong>fairness</strong>: if customers share an API, one noisy customer must not starve the others (the /api/heavy route). When an interviewer asks &#x27;design a rate limiter&#x27;, these three are the needs hiding inside the question.
+</p>
+<h1>12. The tools before the tools
+</h1>
+<p>The project is built from six tools. Each gets explained here once; the build log in section 7 and the stack table in section 3 say why each was chosen over its alternatives.
+</p>
+<h2>12.1 The terminal
+</h2>
+<p>The <strong>terminal</strong> is the text window where you type commands to the computer instead of clicking. Every command in this document (npm install, npm test, curl ...) is typed there. When this document says &#x27;run X&#x27;, it means: open a terminal in the project folder, type X, press Enter.
+</p>
+<h2>12.2 Node.js
+</h2>
+<p><strong>Node.js</strong> is a program that runs JavaScript outside a browser. JavaScript was born inside browsers; Node lets the same language power servers. You check it is installed by running node --version. In this project Node runs the demo server and the tests on your machine. (The live deployment runs the same code on Cloudflare Workers, which is not a Node server - it speaks enough of Node&#x27;s language to run the code; see section 21.)
+</p>
+<h2>12.3 npm and package.json
+</h2>
+<p><strong>npm</strong> is Node&#x27;s package manager: it downloads <strong>packages</strong> (reusable code other people wrote) and records what your project needs. The record is the file <strong>package.json</strong>. Its important fields in this project: name (the project&#x27;s name), type: &quot;module&quot; (which import syntax the files use - modern import/export, not the older require), scripts (named commands you can run: npm run dev starts the demo, npm test runs the tests), dependencies (packages the server needs to run - just Express), devDependencies (packages only needed while developing: the test runner, TypeScript tooling). Running npm install reads those lists and downloads everything into a folder called <strong>node_modules</strong>. You never edit node_modules by hand; it is re-creatable from package.json any time. The file package-lock.json records the exact versions downloaded, so everyone gets identical code.
+</p>
+<h2>12.4 TypeScript
+</h2>
+<p><strong>TypeScript</strong> is JavaScript plus labels that say what kind of thing each value is. In plain JavaScript, consume(key) accepts anything; in TypeScript, consume(key: string) says key must be text, and the computer warns you BEFORE running if you pass a number. Those labels are called <strong>types</strong>. Files end in .ts. One more piece of syntax you will see constantly: an <strong>interface</strong> is a named shape for an object. When the code says interface BucketState { tokens: number; lastRefillMs: number }, it means &#x27;any BucketState is an object with at least these two fields, both numbers&#x27;. TypeScript matches shapes, not exact contents: an object with EXTRA fields still counts as a BucketState (this is called structural typing). One seeming exception: when you build an object literally on the spot, TypeScript also warns about extra fields it did not expect (the excess-property check) - a typo-catcher, not a contradiction of structural typing. Types disappear when the code runs - they exist only to catch mistakes early and to document shapes.
+</p>
+<h2>12.5 tsx
+</h2>
+<p>Older Node versions cannot run .ts files directly - something must strip the types first. (Since Node 22.18, Node can erase simple type annotations itself and run .ts files natively; this project still uses tsx so the same commands work across Node versions and reload-on-edit comes free.) <strong>tsx</strong> does that on the fly, so npm run dev &#x27;just works&#x27; and reloads when you edit a file. You never call tsx yourself; the scripts call it.
+</p>
+<h2>12.6 Vitest
+</h2>
+<p><strong>Vitest</strong> is the test runner: it finds the files in test/, runs the checks in them, and reports pass or fail. A <strong>test</strong> is code that checks other code. Section 19 shows what tests look like and why they caught a real bug here.
+</p>
+<h1>13. Step 1: an empty project that runs
+</h1>
+<p>The first commit-able thing is not an algorithm; it is a folder that runs. The pieces, in the order they were created:
+</p>
+<ul><li>package.json - the project record from 12.3, written by hand with the scripts and dependency lists.
+</li><li>tsconfig.json - TypeScript&#x27;s settings. The important one here is strict: true, which means &#x27;check every type as carefully as possible&#x27;. Beginner rule: always leave strict on; the errors it shows are lessons, not obstacles.
+</li><li>Folders by job: src/core (the algorithms - no web code allowed in here), src/middleware (the web shell), src/demo (an API to practice on), src/cloud (the deployed shared store), test/ (the tests), public/ (the dashboard page), docs/ (these documents&#x27; source).
+</li></ul>
+<p><strong>What you should see:</strong> after npm install and npm run dev, the terminal prints &#x27;Rate limiter demo listening on http://localhost:8787&#x27;. localhost means &#x27;this same computer&#x27;; 8787 is a <strong>port</strong> - a numbered door on the computer, so many servers can run at once without mixing up whose request is whose. Opening that address shows the dashboard.
+</p>
+<p><strong>Mistake to avoid:</strong> if npm run dev fails with &#x27;cannot find module&#x27;, you forgot npm install in this folder. That error means exactly that, nine times out of ten.
+</p>
+<h1>14. Step 2: the token bucket - the heart of the project
+</h1>
+<h2>14.1 The idea in plain words
+</h2>
+<p>Give every caller an imaginary bucket. The bucket holds up to N <strong>tokens</strong> (N is the <strong>capacity</strong> - the biggest burst allowed). Tokens drip in at a steady speed (the <strong>refill rate</strong>). Every request spends one token. An empty bucket means &#x27;wait&#x27;. That is the entire algorithm; everything else is arithmetic. Example with capacity 5 and refill 1 per second: a caller who has been away for a while has a full bucket and can fire 5 requests instantly (the burst); after that, sustained use averages 1 request per second. &#x27;Averaging&#x27; is the honest word: whenever the caller pauses, tokens drip back in, and after about 5 quiet seconds the bucket is full again and another instant 5-burst is possible. The limiter controls the long-run rate and the biggest burst; it does not force traffic to arrive evenly.
+</p>
+<h2>14.2 The two numbers we remember per caller
+</h2>
+<p>We do NOT store every request. We store two numbers per caller: <strong>tokens</strong> (how full the bucket is, a decimal like 3.5) and <strong>lastRefillMs</strong> (when we last updated that number). lastRefillMs is a <strong>timestamp</strong>: the number of milliseconds since 1 January 1970, which is how computers write down a moment in time. Date.now() gives the current one.
+</p>
+<h2>14.3 The math
+</h2>
+<p>When a request arrives: work out how many seconds passed since lastRefillMs (call it elapsed). Add elapsed x refill rate to the bucket, but never above capacity. If the bucket now holds at least 1 token, spend one and allow the request. Otherwise reject it, and compute how long until one token exists - that waiting time becomes the Retry-After header from 11.3. Two safety details: if the computer&#x27;s clock jumps backwards (small corrections from network time sync are normal), elapsed would go negative, and a negative elapsed x rate would DRAIN tokens the caller honestly earned - so elapsed is clamped at zero with Math.max, and a backwards jump simply means &#x27;no refill this check&#x27;. A forward jump adds tokens instead, but the capacity lid bounds that too. The second detail: the reset-time header is computed AFTER the spend, not before - getting that order wrong was the one real bug the tests caught (section 19).
+</p>
+<h2>14.4 The code, walked line by line
+</h2>
+<p>Here is the actual decision, from src/core/tokenBucket.ts, with every line explained:
+</p>
+<pre>const elapsedSeconds = Math.max(0, (nowMs - state.lastRefillMs) / 1000);
+const tokens = Math.min(capacity, state.tokens + elapsedSeconds * refillPerSecond);
+if (tokens &gt;= 1) {
+  const afterSpend = tokens - 1;
+  return { state: { tokens: afterSpend, lastRefillMs: nowMs }, result: { allowed: true, ... } };
+}
+return { state: { tokens, lastRefillMs: nowMs }, result: { allowed: false, ... } };</pre>
+<ul><li>Line 1: nowMs minus lastRefillMs is milliseconds passed; divide by 1000 for seconds. Math.max(0, ...) is the backwards-clock clamp from 14.3.
+</li><li>Line 2: refill math. state.tokens + elapsedSeconds x refillPerSecond is &#x27;old tokens plus what dripped in&#x27;. Math.min(capacity, ...) is the bucket&#x27;s lid.
+</li><li>Lines 3-5: the allow branch. afterSpend is the new bucket level. The function returns two things: the new state to store, and the decision ({ allowed: true, limit, remaining, retryAfterSeconds, resetSeconds } - the exact fields the middleware turns into headers).
+</li><li>Line 7: the reject branch. The bucket keeps its fractional tokens (0.4 stays 0.4 - that fraction is how &#x27;wait 0.6 seconds&#x27; is possible), and the decision says allowed: false plus how long to wait.
+</li></ul>
+<p>New syntax used here: <strong>const</strong> declares a value that will not be reassigned; <strong>Math.max/Math.min</strong> pick the larger/smaller of two numbers; the <strong>{ ... }</strong> braces group statements and also build objects; <strong>return</strong> hands a value back to whoever called the function. The &#x27;...&#x27; above stands for header fields omitted here for readability - the real file has them written out. Every code block in this document is a teaching excerpt like this one: real lines from the named file, with repetitive parts sometimes left out. The runnable source of truth is always the file itself.
+</p>
+<h2>14.5 The class that wraps it
+</h2>
+<p>consumeToken is a pure function: same inputs, same outputs, no memory of its own. The project wraps it in a <strong>class</strong> (TokenBucketLimiter) - a template for making limiter objects. A class bundles data (capacity, refill rate, the store, the clock) with the function that uses them. <strong>constructor</strong> is the function that runs when you make one: new TokenBucketLimiter({ capacity: 30, refillPerSecond: 10, store }). Inside, <strong>this</strong> means &#x27;this specific limiter object&#x27;, so this.capacity is that object&#x27;s capacity. The keyword <strong>async</strong> on consume means the function returns a <strong>Promise</strong>: a &#x27;value that will exist shortly&#x27;. Callers write await limiter.consume(key) to get the real result. Why Promise at all? Because some stores answer over a network hop (section 21) - an interface that must be instant cannot allow that, so the interface promises instead. Section 17 goes deeper.
+</p>
+<h2>14.6 What you should see
+</h2>
+<p>Run the tiny experiment in the exercises (section 22, exercise 1): capacity 5, refill 1/sec, six immediate consume calls print true five times then false. If you can predict the output before running it, you understand the bucket.
+</p>
+<h1>15. Step 3: remembering who called - the store
+</h1>
+<p>The bucket math needs somewhere to keep &#x27;the two numbers&#x27; per caller between requests. Locally that place is <strong>MemoryStore</strong> (src/core/memoryStore.ts): a <strong>Map</strong>, which is JavaScript&#x27;s built-in dictionary. A Map stores key -&gt; value pairs (here: caller key -&gt; BucketState) with map.get(key), map.set(key, value), and map.size. Its defining strength: get and set take roughly the same tiny time on average, no matter how many keys exist - you will hear this called &#x27;average O(1)&#x27;. The honest caveat: rare worst cases (too many keys landing in the same internal slot, or the table pausing to resize as it grows) take longer. Engineers quote the average because worst cases are rare and the average is what a running system actually feels.
+</p>
+<p>Two design decisions live here. First, the store is hidden behind an interface (TokenBucketStore) so the limiter does not care WHERE state lives - memory locally, a Durable Object deployed (section 21). That is the swap-ability the interview answer leans on. Second, the Map is not allowed to grow forever: it is capped at 10,000 keys, keys idle for 10 minutes are evicted, and if it still overflows, the least-recently-touched keys go first. A public demo MUST do this, otherwise a flood of made-up caller keys (random IPs, random usernames) would grow memory until the server fell over. You will see this bounding theme again in the dashboard buttons and the JSON body cap - a public demo defends itself everywhere, not just at the rate limit.
+</p>
+<h1>16. Step 4: the other two algorithms (and the tradeoffs each makes)
+</h1>
+<p><strong>Fixed window</strong> (src/core/fixedWindow.ts): count requests per clock minute; when the count passes the limit, reject until the next minute starts. One counter per window makes it the cheapest limiter here, and gives it a known edge case: a burst at 10:00:59 and another at 10:01:00 are in DIFFERENT windows, so twice the limit can pass in two seconds. The test suite proves this on purpose: 120 requests accepted under a 60-per-minute limit. Whether that edge case matters depends on the job: for coarse, forgiving quotas (a free tier&#x27;s daily cap, an internal tool), the simplicity is worth it and teams choose fixed window on purpose. For this demo - where a visible double-burst would undercut the lesson - it loses.
+</p>
+<p><strong>Sliding window log</strong> (src/core/slidingWindow.ts): remember the timestamp of every request and count how many fall in the last 60 seconds. Accurate, no edge bursts - the cost is memory: every timestamp is stored, so memory grows with traffic, which is exactly what token bucket avoids with its two numbers. When traffic is modest, or precision matters more than memory (audit-grade fairness, small customer counts), the log is a legitimate choice. For this project&#x27;s demo scale and interview story, the bucket&#x27;s constant memory wins.
+</p>
+<p>Keeping both in the repo is deliberate: being able to show the tradeoffs of each, pinned down by tests, is worth more in an interview than the winner alone.
+</p>
+<h1>17. Step 5: the middleware - where algorithms meet the web
+</h1>
+<h2>17.1 What middleware is
+</h2>
+<p><strong>Express</strong> is the web framework: it listens for requests, matches them to routes, and runs our code. Its central idea is <strong>middleware</strong>: functions that run in the middle, before the route&#x27;s own handler. A request flows through them in order: jsonBody() (reads the body) -&gt; rateLimit(...) (the limiter) -&gt; the route handler (the actual answer). Any of them can end the request early - the limiter ends it with 429 when the bucket is empty, so the route handler never runs. &#x27;The flood stops at the gate&#x27; is this sentence.
+</p>
+<h2>17.2 The code, walked line by line
+</h2>
+<pre>const key = keyGenerator(req);
+const result = await options.limiter.consume(key);
+res.setHeader(&#x27;X-RateLimit-Limit&#x27;, result.limit);
+res.setHeader(&#x27;X-RateLimit-Remaining&#x27;, result.remaining);
+res.setHeader(&#x27;X-RateLimit-Reset&#x27;, result.resetSeconds);
+if (!result.allowed) {
+  res.setHeader(&#x27;Retry-After&#x27;, result.retryAfterSeconds);
+  res.status(429).json({ error: &#x27;Too many requests&#x27;, retry_after_seconds: result.retryAfterSeconds });
+  return;
+}
+next();</pre>
+<ul><li>req is the incoming request object; res is the response being built; next() means &#x27;pass to the next middleware&#x27;.
+</li><li>Line 1: decide WHO is calling. keyGenerator is a function passed in as a setting - functions can be stored and passed like any other value in JavaScript. Default: the caller&#x27;s IP address (their network identity). The login route passes its own: IP plus username (17.4 explains why).
+</li><li>Line 2: ask the limiter. await pauses this function until the Promise from 14.5 resolves - meanwhile the server handles other requests; awaiting does not freeze the whole server.
+</li><li>Lines 3-5: attach the three X-RateLimit headers to EVERY response, allowed or not, so honest clients can pace themselves.
+</li><li>Lines 6-10: the reject branch: Retry-After header, status 429, a small JSON body, and return - next() is never called, so the route handler never runs.
+</li><li>Line 11: the allow branch: next() hands the request on.
+</li></ul>
+<p>This too is a teaching excerpt. The runnable file (src/middleware/rateLimit.ts) wraps these lines in the exported shell - export function rateLimit(options) { return async (req, res, next) =&gt; { ... } } - plus a try/catch that forwards store failures as a 500 instead of hanging (17.3). The shell means: calling rateLimit({...}) builds a middleware function customized by your options, ready to plug into a route.
+</p>
+<h2>17.3 Why the limiter call needs await
+</h2>
+<p>Locally, consume reads a Map - instant. Deployed, it asks a Durable Object over Cloudflare&#x27;s internal network - not instant. One honest interface covers both: consume returns a Promise, the middleware awaits it. If the store itself fails, the try/catch around the middleware body passes the error to Express with next(err), which answers 500 instead of hanging silently. Failing loudly is a feature.
+</p>
+<h2>17.4 Choosing the key is the real design work
+</h2>
+<p>The algorithm is settled; WHO to limit is the interview question. Reads key by IP (the caller&#x27;s network address). Login keys by IP + username: an attacker guessing passwords has no account yet, so keying by account id would not slow them; keying by IP + username also stops one attacker from spraying many usernames from one IP... it actually stops them per-username - and a single determined account gets its own small bucket. The heavy route keys by API key (a password-like string customers send in the x-api-key header), because fairness is per customer, not per machine. One caution documented in the code: many real users can share one IP (a campus, an office), so IP keys are a blunt instrument - layered keys are the grown-up version.
+</p>
+<h1>18. Step 6: the demo API - three routes, three lessons
+</h1>
+<p>The demo exists so every concept has buttons attached. Its routes, and the lesson each one teaches:
+</p>
+<ul><li>GET /api/data - loose read limit (30 burst, refills 10/sec, keyed by IP). Lesson: limits are per-route policy, not one global switch.
+</li><li>POST /api/login - strict on purpose (5/minute per IP + username). Lesson: brute-force math. At 5 tries per minute, one attacker gets 300 guesses per hour, about 7,200 per day; an 8-character password has roughly 200,000,000,000,000 combinations. Without a limit, guessing is a laptop&#x27;s afternoon; with it, guessing is hopeless. The route always answers 401 - it is a demo with nothing to log into - which also shows the limiter rejects BEFORE credentials are even checked.
+</li><li>GET /api/heavy - per-API-key (10/minute). Lesson: fairness; one noisy customer cannot starve others because each key gets its own bucket.
+</li></ul>
+<p>One engineering story lives in this file. Express&#x27;s built-in JSON reader (express.json()) pulls in a chain of packages ending in one called iconv-lite, which converts between text encodings using a trick the Workers runtime does not support - so on Cloudflare, express.json() crashes the request. The fix is twenty lines: a small jsonBody() that reads the request text, parses it as UTF-8 JSON (the only encoding this API accepts), answers 400 on malformed JSON, and refuses bodies over 1 MB (the self-defending bound from section 15, applied to request sizes). Tradeoff stated in the code: no other charsets, fixed size cap. For this API, both are correct.
+</p>
+<h1>19. Step 7: the tests - how we know any of this works
+</h1>
+<p>A test is code that checks code. The project&#x27;s 35 tests live in test/ and read like tiny scripts: arrange a limiter with a fake clock, act on it, assert what happened. The fake clock is the clever bit: the limiter never calls Date.now() directly - the clock is handed in as a parameter - so a test can say &#x27;pretend two minutes passed&#x27; in a millisecond, and even &#x27;pretend the clock jumped backwards&#x27; to prove no free tokens appear.
+</p>
+<p>The vocabulary: describe groups related tests; it is one check (&#x27;it rejects the 101st request&#x27;); expect(...).toBe(...) is the assertion - &#x27;if this is not true, the test fails&#x27;. supertest lets the middleware tests fire real HTTP requests at the app without starting a network server, so the tests assert on actual status codes and headers - the exact contract clients see.
+</p>
+<p>The story that makes the point: while building, a test failed because the X-RateLimit-Reset header was computed BEFORE the token was spent, so spending from a full bucket wrongly reported &#x27;resets in 0 seconds&#x27;. That is a real bug, caught in two minutes, that manual clicking would likely never have found. <strong>What you should see:</strong> npm test prints &#x27;Test Files 4 passed, Tests 20 passed&#x27;. Exercise 5 in section 22 has you break the code on purpose and watch a test go red - do it; knowing how failures look is half the skill.
+</p>
+<h1>20. Step 8: the dashboard - making the invisible visible
+</h1>
+<p>public/index.html is one self-contained page (dark, to match the docs). <strong>HTML</strong> is the page&#x27;s skeleton (headings, buttons, a canvas), <strong>CSS</strong> is its paint (colors, spacing - the :root block defines the palette once), and a <strong>JavaScript</strong> block is its behavior. The page polls - asks the server for the stats feed once per second with fetch(&#x27;/__rl/stats.json&#x27;) - and draws the last two minutes as bars on a <strong>canvas</strong> (a drawable rectangle): green for allowed, red for 429. No chart library: the chart is two bar series, and drawing it by hand means understanding every pixel, which is the point of the project.
+</p>
+<p>The fire buttons call the same fetch your browser uses for any API. Because this is a PUBLIC page on the internet, the buttons are bounded on purpose: at most 150 requests per click, sent in batches of 10 so one click never opens hundreds of connections. The page says so itself, in the &#x27;Demo limits, on purpose&#x27; card - honest limits, in the open.
+</p>
+<h1>21. Step 9: putting it on the internet - Workers and the shared store
+</h1>
+<h2>21.1 What serverless means
+</h2>
+<p>Running the demo on your own laptop only shows it to you. <strong>Serverless</strong> hosting (here: <strong>Cloudflare Workers</strong>) means: give the company your code; they run it on their computers, close to each visitor, starting it fresh when requests arrive and stopping it when idle. No server to rent, no card needed on the free tier - which the project&#x27;s rules require.
+</p>
+<h2>21.2 wrangler and wrangler.jsonc
+</h2>
+<p><strong>wrangler</strong> is Cloudflare&#x27;s command-line tool: npx wrangler deploy uploads the code and makes it live. Its settings file, wrangler.jsonc, is worth reading line by line: name (the worker&#x27;s name, which becomes its URL), main (the entry file, src/worker.ts), compatibility_date (which version of the Workers runtime behaviors to use), compatibility_flags nodejs_compat (speak enough Node to run Express), assets (serve the dashboard files directly), and the durable_objects + migrations blocks (section 21.4).
+</p>
+<h2>21.3 The bridge: how Express runs where there is no Node server
+</h2>
+<p>A Worker is not a Node server; it answers fetch events. A Cloudflare-provided bridge (httpServerHandler) wraps our Express app so each incoming fetch is translated into the request/response objects Express understands. The same app code runs locally on Node and deployed on Workers - one of the project&#x27;s design rules (&#x27;the core knows nothing about HTTP&#x27;) is what makes this possible at all.
+</p>
+<h2>21.4 The problem: many copies, one limiter
+</h2>
+<p>Cloudflare runs several copies (<strong>isolates</strong>) of a worker at once, each with its own memory. The first deployed version kept buckets in memory, so each copy enforced only its share of the traffic - two copies, each allowing the full limit. The fix is a <strong>Durable Object</strong>: a named object that exists once, that every isolate can call, and that handles one call at a time. &#x27;One at a time&#x27; is what makes each check-and-spend <strong>atomic</strong>: two isolates can never both spend the last token, which a get-then-set split across two calls could not guarantee. The object&#x27;s storage also persists the buckets and the stats feed, so restarts forget nothing.
+</p>
+<p>The honest tradeoff, also in the docs&#x27; known-limits: one named object is one decision point - the same shape of tradeoff as a single Redis primary on self-hosted servers. Right for this project; high-traffic systems shard by key instead.
+</p>
+<h2>21.5 The bug only the real runtime could teach
+</h2>
+<p>The first shared-store version passed all local tests, deployed, then answered 500 on every second request. The reason: Cloudflare binds I/O objects (like the Durable Object stub) to the request that created them - a cached pipeline was answering later requests with a dead stub. The fix is to build the Express pipeline per request (a few cheap registrations). The lesson is written in src/worker.ts and repeated here on purpose: some constraints only appear in the real environment, which is why &#x27;it passed the tests&#x27; is never the last step - verifying the live system is.
+</p>
+<h2>21.6 curl: checking the deployment from the terminal
+</h2>
+<p><strong>curl</strong> sends requests from the terminal - the same conversations the browser has, but typed. curl -i https://api-rate-limiter.2wf0w2.workers.dev/api/data shows the response WITH headers: you should see HTTP/2 200 and the three X-RateLimit headers. Fire it 31 times quickly and the 31st answers 429 with Retry-After. That is the whole system, verified by hand - exercise 8 has you do exactly this.
+</p>
+<h1>22. Try it yourself
+</h1>
+<p>Each exercise changes something small and asks you to predict first. Predicting before running is where the learning happens.
+</p>
+<ul><li>1. Token bucket basics: create a limiter with capacity 5, refill 1/sec; call consume six times immediately. Predict, then check: five true, one false.
+</li><li>2. Refill: after emptying the bucket, pretend 3 seconds pass (the fake clock in test/tokenBucket.test.ts shows how). Predict how many requests now pass: 3.
+</li><li>3. Change a real limit: in src/demo/server.ts, change the login route&#x27;s capacity from 5 to 3, restart, and click &#x27;Simulate attack (20)&#x27;. Predict the allowed/rejected split before clicking.
+</li><li>4. Headers: curl -i the /api/data route twice in a row. Predict which header changes between the two responses, and by how much.
+</li><li>5. Break a test on purpose: in the token-bucket allow branch, change afterSpend = tokens - 1 to tokens - 2 and run npm test. Read the failure message carefully - then undo the change. Reading failure output calmly is a core skill.
+</li><li>6. Keying: make /api/heavy key by IP instead of API key (one line in src/demo/server.ts). Predict how the Flood 40 button&#x27;s behavior changes for two different x-api-key values. Restore afterwards.
+</li><li>7. Bounding: find the three places the demo defends itself (button caps, bucket cap with idle eviction, body size cap) and write one sentence each on what attack or accident it prevents.
+</li><li>8. Live verification: with curl, fire requests at the deployed /api/data until you get a 429, then read the Retry-After header and wait that long. Predict what the next request does.
+</li><li>9. Explain it back: without looking at the code, say out loud what happens when a request reaches POST /api/login - every step from 17.2. Then check against the file. Anything you missed is the thing to re-read.
+</li><li>10. Interview rehearsal: answer &#x27;design a rate limiter&#x27; in two minutes using only section 9&#x27;s skeleton. Record yourself if you can; filler words reveal fuzzy understanding.
+</li></ul>
+<h1>23. Mistakes to watch for (learned the hard way in this build)
+</h1>
+<ul><li>Computing reset before the spend instead of after - the bug the tests caught. Order matters when a value depends on a change you are making.
+</li><li>Forgetting await on a Promise: you get a Promise object where you expected a result, and the error appears somewhere unrelated. If a value looks like &#x27;Promise { &lt;pending&gt; }&#x27;, an await is missing.
+</li><li>Letting a Map grow without a cap: fine in a toy, fatal on a public server. Every unbounded collection in a public system is a future outage.
+</li><li>Trusting client-sent headers for identity without thinking: keys like x-api-key are claims, not proof; fine for fairness buckets, never for security decisions on their own.
+</li><li>Assuming &#x27;passed the tests&#x27; means &#x27;works deployed&#x27;: the stub-lifetime bug (21.5) passed every local test. Verify the live system too.
+</li><li>Claiming absolutes in docs: &#x27;always passes&#x27;, &#x27;private&#x27;, &#x27;unlimited&#x27;. This project&#x27;s own documentation was corrected on exactly this - precise claims survive review; absolute ones do not.
+</li></ul>
+<h1>24. What is built vs what is not
+</h1>
+<p><strong>Built and verified (you can point at each of these): the three algorithms; the middleware with its header and 429 contract; the demo API with four policies; the live dashboard with its concurrency-proof card; the 35-test suite; the Cloudflare Workers deployment; the Durable Objects shared store; tiered plans, cost-based limiting, escalating penalties and the live concurrency proof (sections 29-32); the self-defending public-demo bounds.</strong>
+</p>
+<p><strong>Deliberately not built (possible next steps, not gaps): sharding the shared store by key (needed only at far higher traffic); a Redis store for self-hosted servers (the interface leaves room for it); gradual decay of jail violations (records clear on success or idle eviction - section 31); and - only if Shubhra wants it - protecting StudyFlow&#x27;s own API with this middleware. The four upgrades of sections 29-32 were her pick from a menu of ten; the foundation stays deliberately clean so further ideas have room.</strong>
+</p>
+<p>Update note, 9 Nov 2026, 2:42 AM IST: sections 10-24 (the beginner path) were added after Shubhra asked for documentation that teaches the project from zero. No code changed in this update; the reference sections 1-9 above are unchanged except where flagged corrections were applied earlier.
+</p>
+<h1>25. The files not yet walked, one by one
+</h1>
+<p>Sections 14-21 went deep on the heart of the project. This section covers every remaining file: what it is for, and the lines that matter. Code shown is the same kind of teaching excerpt as before - real lines, sometimes trimmed.
+</p>
+<h2>25.1 src/core/types.ts - the shared shapes
+</h2>
+<p>Every file agrees on two interfaces, and they live here so there is one definition: RateLimitResult (the decision: allowed, limit, remaining, retryAfterSeconds, resetSeconds) and RateLimiter (anything with a limit field and a consume(key) method). Two new syntax pieces. First, a comment that opens with slash-star-star is a documentation comment - formatted so editors show it as hover help. Second, <strong>readonly</strong>: readonly limit: number means &#x27;after creation, this field cannot be reassigned&#x27; - a promise the compiler enforces. You will also see Promise&lt;RateLimitResult&gt;: the angle brackets read as &#x27;a Promise OF a RateLimitResult&#x27;. Brackets carrying a type like this are a <strong>generic</strong> - the container (Promise) works with any content type, and the bracket says which one this instance holds.
+</p>
+<h2>25.2 src/core/memoryStore.ts - the Map, watched
+</h2>
+<p>Section 15 gave the idea; here is the machinery. New syntax first: class MemoryStore implements TokenBucketStore - <strong>implements</strong> is a promise, checked by the compiler, that this class provides everything the interface names (get, set, size). <strong>private</strong> marks fields only this class may touch. The constructor line constructor(private readonly maxEntries = 10_000, ...) uses two shorthands at once: writing private readonly before a parameter both declares the field and assigns it, and 10_000 is just 10000 - underscores inside numbers are ignored, there only for readability.
+</p>
+<pre>set(key: string, state: BucketState): void {
+  this.buckets.delete(key);
+  this.buckets.set(key, state);   // re-inserting refreshes recency: a Map remembers insertion order
+  if (this.buckets.size &gt; this.maxEntries) {
+    this.evict();
+  }
+}</pre>
+<p>Two details worth understanding. get returns BucketState | undefined - the <strong>|</strong> reads &#x27;or&#x27;: the answer is a BucketState OR undefined (Map&#x27;s way of saying &#x27;not here&#x27;), and the compiler makes callers handle both. And eviction: evict() loops for (const [key, state] of this.buckets) - looping a Map yields [key, value] pairs, and the square brackets on the left unpack each pair into two names in one move (called <strong>destructuring</strong>). Idle buckets are deleted; if the cap is still exceeded, a while loop drops the oldest-touched entries until the Map fits. void on a method means &#x27;returns nothing&#x27;.
+</p>
+<h2>25.3 src/demo/server.ts - the wiring
+</h2>
+<p>This file builds the app: it creates one limiter per route from a small spec table, plugs the middleware in, and starts listening. Section 18 covered the three policies; here is the one line with the most new syntax - the login route&#x27;s key chooser:
+</p>
+<pre>keyGenerator: (req) =&gt; `${req.ip}:${req.body?.username ?? &#x27;unknown&#x27;}`,</pre>
+<ul><li><strong>(req) =&gt; ...</strong> is an arrow function: a short way to write a function. (req) =&gt; expr means the same as function (req) { return expr; }.
+</li><li><strong>Backticks</strong> make a template literal: text where ${...} slots are filled with values. `a${x}b` builds a string with x&#x27;s value in the middle.
+</li><li><strong>?.</strong> is optional chaining: req.body?.username means &#x27;if req.body exists, take its username; otherwise the whole thing is undefined&#x27; - instead of crashing on a missing body.
+</li><li><strong>??</strong> is nullish coalescing: a ?? b means &#x27;a, unless a is null or undefined - then b&#x27;. So a login attempt with no JSON body still gets a key: the IP plus &#x27;unknown&#x27;.
+</li></ul>
+<p>The same file also shows app.use(express.static(publicDir)) - Express serving the dashboard&#x27;s files as-is - and app.listen(port, ...), which opens the port from section 13. The exported buildApp({ makeLimiter }) shape is what lets the deployed version (25.7) reuse every route unchanged while swapping only where the limiters live.
+</p>
+<h2>25.4 src/demo/stats.ts - the memory the dashboard reads
+</h2>
+<p>The dashboard&#x27;s chart needs &#x27;allowed vs rejected, per second, for the last two minutes&#x27;. StatsRecorder keeps exactly that: a Map from second-number to {allowed, rejected} counts, pruned on every write to the 120-second window. One line shows how forgiving Map code is written: const slot = this.bySecond.get(t) ?? { allowed: 0, rejected: 0 } - &#x27;the stored counts for this second, or a fresh zeroed pair if this second has not been seen yet&#x27; (there is ?? from 25.3 again). snapshot() then rebuilds the full window second by second, filling gaps with zeros, which is why the chart shows continuous bars. It is deliberately approximate - a teaching instrument, not a monitoring system, and the file says so in its own header comment.
+</p>
+<h2>25.5 src/cloud/durableObject.ts - the shared store itself
+</h2>
+<p>Section 21.4 told the story; this file is the story as code. The class RateLimiterDO answers fetch requests from the worker: a POST to /consume carries { limiter, key, capacity, refillPerSecond }, the object runs the SAME consumeToken() math from section 14 on its own stored state, saves the new state, and answers with the decision. Because the object handles one call at a time, read-decide-write can never interleave with a second request - the atomicity 21.4 explained. Buckets persist in the object&#x27;s storage (SQLite-backed on the free tier) under keys like &#x27;bucket:login:1.2.3.4:alice&#x27;, with a small hot cache in front and the same 10,000-key, 10-minute-idle bounds as MemoryStore - the self-defending theme again, this time inside the shared store. A GET to /stats serves the dashboard&#x27;s global feed from the same object, which is why the deployed chart shows ALL traffic, not one copy&#x27;s share.
+</p>
+<h2>25.6 src/cloud/durableObjectLimiter.ts - the adapter
+</h2>
+<p>The middleware only knows the RateLimiter interface (consume in, decision out). This class implements that interface while quietly delegating to the Durable Object - an <strong>adapter</strong>: one contract on the outside, a different mechanism inside.
+</p>
+<pre>async consume(key: string): Promise&lt;RateLimitResult&gt; {
+  const res = await this.stub.fetch(&#x27;https://rate-limiter-do/consume&#x27;, {
+    method: &#x27;POST&#x27;,
+    body: JSON.stringify({ limiter: this.limiterId, key, capacity: this.limit, refillPerSecond: this.refillPerSecond }),
+  });
+  if (!res.ok) {
+    throw new Error(`Shared rate-limit store answered ${res.status}`);
+  }
+  return (await res.json()) as RateLimitResult;
+}</pre>
+<ul><li>this.stub is the handle to the Durable Object; stub.fetch(...) is Cloudflare&#x27;s internal call - not the public internet, worker-to-object inside the platform.
+</li><li>JSON.stringify from 11.4 packs the four fields into the request body; on the other side, the object reads them back with JSON.parse.
+</li><li><strong>throw new Error(...)</strong> is how code says &#x27;something failed, stop here&#x27; - the try/catch in the middleware (17.3) catches exactly this and answers 500.
+</li><li><strong>as RateLimitResult</strong> is a type cast: res.json() returns &#x27;unknown JSON&#x27;, and as tells the compiler &#x27;trust me, this matches the shape&#x27;. Used sparingly - and here the shape is one we built ourselves in 25.5.
+</li><li>The stub&#x27;s type is structural (25.1&#x27;s lesson in action): DurableObjectStubLike demands only &#x27;something with a fetch that works like this&#x27;, so tests can hand in a fake stub with no Cloudflare runtime at all - that is how the shared store gets unit tests on a laptop.
+</li></ul>
+<h2>25.7 src/worker.ts - the deployed entry point
+</h2>
+<p>The worker&#x27;s shape is export default { fetch(request, env) { ... } }: <strong>export default</strong> marks the one main thing a file offers, and the Workers runtime calls that fetch for every request. env carries the bindings from wrangler.jsonc - here env.RATE_LIMITER, the Durable Object namespace. Two lines do the locating: idFromName(&#x27;global&#x27;) asks for the one object named &#x27;global&#x27; (every isolate gets the same one - that is the sharing), and .get(id) returns the stub. Then the per-request pipeline from 21.5, as code: build the Express app fresh with a makeLimiter that hands out DurableObjectLimiter adapters, wrap it in httpServerHandler, and let it answer. The stats route is answered straight from the object, without touching Express.
+</p>
+<h2>25.8 src/cloudflare-workers.d.ts - types for things we did not write
+</h2>
+<p>A file ending in .d.ts contains ONLY types - no runnable code. This one tells TypeScript &#x27;there is a module called cloudflare:node, provided by the platform, and here is the shape of its httpServerHandler&#x27;. Without it, the compiler would refuse to believe the import in 25.7 exists. You never run a .d.ts; it exists purely so the compiler can check code that touches things outside the project.
+</p>
+<h2>25.9 The four test files
+</h2>
+<p>test/ has one file per subject: tokenBucket.test.ts (the math), fixedWindow.test.ts (including the deliberate 120-of-60 edge-burst proof from section 16), middleware.test.ts (the header-and-429 contract over real HTTP via supertest), and durableObject.test.ts (the adapter against a fake stub). One walk shows the pattern all four share - the fake clock from section 19:
+</p>
+<pre>function makeClock(start = 1_000_000) {
+  let now = start;
+  return {
+    now: () =&gt; now,
+    advanceMs: (ms: number) =&gt; { now += ms; },
+  };
+}</pre>
+<ul><li><strong>let</strong> declares a value that WILL be reassigned (now changes); const from 14.4 is for values that will not. Choosing between them is a signal to the reader.
+</li><li>makeClock returns an object holding two arrow functions that share the same now variable. Functions that remember the variables around their birth are called <strong>closures</strong>; this one is a tiny time machine - advanceMs(120000) pretends two minutes passed.
+</li><li>A test then reads: make a clock, fire five consumes with expect(...).toBe(true) each, and expect the sixth toBe(false). describe groups, it checks, expect asserts - the vocabulary from section 19, now seen in real lines.
+</li></ul>
+<h1>26. Syntax quick-reference (everything seen in this project)
+</h1>
+<p>One line each, with where you first met it. Keep this section open while reading the code.
+</p>
+<ul><li><strong>const / let</strong> - declare a value; const will not be reassigned, let will (14.4, 25.9).
+</li><li><strong>=&gt;</strong> arrow function - a short function; (x) =&gt; x + 1 (25.3).
+</li><li><strong>`...${x}...`</strong> template literal - text with slots filled in (25.3).
+</li><li><strong>?.</strong> optional chaining - reach into something that might be missing, get undefined instead of a crash (25.3).
+</li><li><strong>??</strong> nullish coalescing - &#x27;this, or if it is null/undefined, that&#x27; (25.3).
+</li><li><strong>a ? b : c</strong> ternary - a one-line if: condition, yes-value, no-value. Seen in slidingWindow.ts choosing the window&#x27;s oldest relevant timestamp.
+</li><li><strong>&lt;Type&gt;</strong> generic - a container or function parameterized by a type: Promise&lt;RateLimitResult&gt; is &#x27;a Promise of a RateLimitResult&#x27; (25.1).
+</li><li><strong>A | B</strong> union - &#x27;A or B&#x27;; BucketState | undefined (25.2).
+</li><li><strong>as T</strong> cast - &#x27;compiler, trust me on the shape&#x27; (25.6).
+</li><li><strong>readonly</strong> - a field that cannot be reassigned after creation (25.1).
+</li><li><strong>implements</strong> - a class&#x27;s compiler-checked promise to satisfy an interface (25.2).
+</li><li><strong>private</strong> - only this class may touch this field (25.2).
+</li><li><strong>import / export</strong> - files sharing code: export offers, import takes; export default marks the one main offer (12.3, 25.7).
+</li><li><strong>for (const x of xs)</strong> - loop over every item; for (const [k, v] of map) destructures pairs while looping (25.2).
+</li><li><strong>for (let i = 0; i &lt; 5; i++)</strong> - the counting loop: start, keep-going condition, step (25.9).
+</li><li><strong>while (cond)</strong> - loop until the condition stops being true (25.2).
+</li><li><strong>throw / try / catch</strong> - raise a failure, and the net that catches it (25.6, 17.3).
+</li><li><strong>Comments</strong> - // for one line, /* ... */ for a block, and the doc-comment form from 25.1 for hover help.
+</li><li><strong>10_000</strong> - underscores in numbers are ignored; readability only (25.2).
+</li><li><strong>async / await</strong> - the result arrives later; await waits without freezing the server (14.5, 17.3).
+</li></ul>
+<h1>27. How complete this walkthrough is
+</h1>
+<p>Honest accounting, so you know what you hold. <strong>Walked line by line:</strong> the token-bucket decision (14.4) and the middleware contract (17.2). <strong>Walked by teaching excerpt:</strong> every other source file, in section 25 - real key lines with repetitive parts left out. <strong>Deepened after review:</strong> section 28 now walks the fixed/sliding window implementations, the dashboard&#x27;s firing and drawing code, and the three remaining test files with real code and runnable exercises. (The doc-comment opener in 25.1 and a few one-line helpers elsewhere remain prose-level.) Nothing in the repository is unmentioned: every file has at least its job and its important lines documented. If you want any summarized file promoted to a full line-by-line walk, say which one.
+</p>
+<p>Update note, 9 Nov 2026, 2:53 AM IST: sections 25-27 added, and six statements in Part II were corrected after review - the interface &#x27;exactly these fields&#x27; claim (now structural typing plus the excess-property exception); the &#x27;Node cannot run .ts&#x27; claim (now version-scoped: Node 22.18+ runs .ts natively, tsx kept for cross-version scripts and reload); the backwards-clock explanation (the real risk is drained tokens; the clamp turns a backwards jump into &#x27;no refill&#x27;); the capacity-5 example (bursts return after idle - only the average is capped); the Map O(1) claim (now average-case, with the worst case named); and the fixed/sliding window verdicts (now tradeoffs with legitimate use cases, not universal losers). No code changed.
+</p>
+<h1>28. Deeper walks: the other algorithms, the dashboard, and the remaining tests
+</h1>
+<p>Section 25 gave every remaining file its job and key lines. This section goes under the hood of the four places that were still summary-level: the two comparison algorithms as real code, the dashboard&#x27;s firing and drawing logic, and the three test files not yet walked. New constructs are explained where they first appear here; section 26&#x27;s table covers everything from earlier sections.
+</p>
+<h2>28.1 fixedWindow.ts - one counter, as code
+</h2>
+<pre>const windowStartMs = Math.floor(now / this.windowMs) * this.windowMs;
+let state = this.windows.get(key);
+if (!state || state.windowStartMs !== windowStartMs) {
+  state = { count: 0, windowStartMs };
+  this.windows.set(key, state);
+}
+if (state.count &lt; this.limit) {
+  state.count += 1;
+  return { allowed: true, /* ...remaining fields... */ };
+}</pre>
+<ul><li>Line 1 finds which window &#x27;now&#x27; falls in: divide by the window length, <strong>Math.floor</strong> rounds down to a whole window, multiply back to milliseconds. Every time between 10:00:00 and 10:00:59 maps to the same windowStartMs - that is the whole trick, and also the source of the edge burst: the window boundary is a hard cliff.
+</li><li><strong>!state || ...</strong> - the exclamation mark is logical NOT (&#x27;if there is no state&#x27;), and || is OR: start a fresh counter when this caller has none OR their counter belongs to an older window.
+</li><li>{ count: 0, windowStartMs } - an object literal using the shorthand: writing just windowStartMs means windowStartMs: windowStartMs.
+</li><li><strong>state.count += 1</strong> is compound assignment: &#x27;count = count + 1&#x27;. The decision is one comparison - that is why this limiter is the cheapest of the three.
+</li></ul>
+<p><strong>Try it:</strong> the fake clock&#x27;s default start is 0 - exactly on a window boundary, which is what makes these numbers line up. With limit 2 and windowSeconds 60: consume twice, advance 59 seconds, consume - predict: rejected (same window). Advance 1 more second (t=60, the next window), consume - predict: allowed. Now start the clock at 7_000 instead and redo the arithmetic: windows still break at absolute t=60, t=120, ..., so the reset comes after advancing 53 seconds, not 60. The test in 28.4 starts at 59_900 for exactly this reason - it places the burst at a window&#x27;s end on purpose.
+</p>
+<h2>28.2 slidingWindow.ts - a memory of every request, as code
+</h2>
+<pre>const cutoff = now - this.windowMs;
+const log = (this.logs.get(key) ?? []).filter((t) =&gt; t &gt; cutoff);
+if (log.length &lt; this.limit) {
+  log.push(now);
+  this.logs.set(key, log);
+  const oldestRelevant = log.length &gt; 1 ? log[0] : now;
+  // ...build the allowed decision with resetSeconds from oldestRelevant...
+}</pre>
+<ul><li>cutoff is &#x27;the oldest timestamp still inside the window&#x27;. Anything older stops counting.
+</li><li><strong>filter</strong> is an array method: it builds a new array keeping only the items where the little arrow function answers true. Here: keep only timestamps newer than the cutoff. This one line is the sliding window - expired requests literally drop out of memory, which is why there is no edge burst.
+</li><li><strong>push</strong> appends to the end of an array. The log stays oldest-first, so log[0] is always the oldest surviving request - and &#x27;when does this window loosen?&#x27; is &#x27;when log[0] falls out&#x27;, which is what resetSeconds computes.
+</li><li>The <strong>ternary</strong> log.length &gt; 1 ? log[0] : now reads: if more than one request survives, the oldest is the front of the log; otherwise (the one we just added) use now.
+</li><li>The cost is visible in the type: Map&lt;string, number[]&gt; - an ARRAY per caller, growing with their traffic. Compare BucketState&#x27;s two numbers (14.2). Same job, opposite memory shape - section 16&#x27;s tradeoff, now in types you can point at.
+</li></ul>
+<p><strong>Try it:</strong> limit 3, window 10 seconds. Fire 3 requests, advance 5 seconds, fire 1 more (rejected). Predict Retry-After: about 5 seconds - when the FIRST request ages out. Advance 5, fire again: allowed. Token bucket would have answered differently (its tokens drip continuously) - run both and compare; that difference is the interview answer made physical.
+</p>
+<h2>28.3 The dashboard&#x27;s JavaScript - firing and drawing
+</h2>
+<p>Two functions run the page. fire(name, count) sends traffic; tick() + draw(seconds) paint it. The data flow: setInterval(tick, 1000) makes the browser call tick once a second (setInterval is the browser&#x27;s repeating timer); tick fetches /__rl/stats.json and hands the seconds array to draw.
+</p>
+<pre>for (let i = 0; i &lt; count; i += 10) {
+  const jobs = [];
+  for (let j = i; j &lt; Math.min(i + 10, count); j++) {
+    jobs.push(fetch(r.url, { method: r.method, /* headers, body */ })
+      .then(res =&gt; { if (res.status === 429) rejected++; else ok++; })
+      .catch(() =&gt; { lastStatus = 0; }));
+  }
+  await Promise.all(jobs);
+}</pre>
+<ul><li>The outer loop steps i by 10 - that is the batching bound from section 20, as a loop increment (i += 10).
+</li><li><strong>.then(...)</strong> and <strong>.catch(...)</strong> are the other way to consume a Promise, without await: .then runs when it succeeds, .catch when it fails. Inside, res =&gt; { ... } is another arrow function.
+</li><li><strong>Promise.all(jobs)</strong> waits for a whole array of Promises at once - so each batch of 10 flies in parallel, and the await holds the next batch until this one lands. Ten concurrent connections per click, never hundreds.
+</li><li>One spread appears in the real headers line: { &#x27;Content-Type&#x27;: &#x27;application/json&#x27;, ...(r.headers || {}) } - <strong>...(three dots)</strong> copies every field of one object into another, so a route&#x27;s extra headers merge into the standard one. (r.headers || {}) means &#x27;its headers, or an empty object if it has none&#x27; - || also reads &#x27;or the fallback&#x27; with plain values.
+</li></ul>
+<pre>seconds.forEach((s, i) =&gt; {
+  const x = i * (w / n);
+  const hA = (s.allowed / max) * (h - 4);
+  const hR = (s.rejected / max) * (h - 4);
+  ctx.fillStyle = &#x27;#3ecf8e&#x27;;
+  ctx.fillRect(x, h - hA, barW, hA);
+  ctx.fillStyle = &#x27;#ef5b6b&#x27;;
+  ctx.fillRect(x, h - hA - hR, barW, hR);
+});</pre>
+<ul><li><strong>forEach</strong> runs its arrow function once per item, with the item (s) and its index (i) - the drawing loop over the 120 one-second slots from StatsRecorder (25.4).
+</li><li>canvas coordinates grow DOWNWARD: y = 0 is the top. So the green bar is drawn from h - hA (its top edge) down to the bottom, and the red bar stacks on top of it. fillRect(x, y, width, height) is the whole chart - one rectangle per second per color.
+</li><li>max is the busiest second seen (Math.max(5, ...seconds.map(s =&gt; s.allowed + s.rejected)) - map builds an array of per-second totals, the three dots spread that array into separate arguments, and the 5 keeps quiet moments from zooming absurdly). Every bar height is a fraction of max - that is the scaling.
+</li><li>Above draw(), canvas.getContext(&#x27;2d&#x27;) asks the canvas element for its 2D drawing interface (ctx), and the devicePixelRatio dance makes lines sharp on high-density screens: canvas pixels are set to CSS size x dpr, then the transform scales drawing commands back so the code can think in CSS pixels.
+</li></ul>
+<p><strong>Try it:</strong> change setInterval(tick, 1000) to 5000 and predict what the chart does (updates in 5-second chunks). Change &#x27;#3ecf8e&#x27; to &#x27;#7cc7ea&#x27; - the docs&#x27; heading blue - and watch allowed-requests turn blue. For the batching, the number 10 appears twice - the outer loop&#x27;s step (i += 10) and the inner loop&#x27;s bound (Math.min(i + 10, count)) - and the two must move together: change BOTH to 1, or better, replace both with one batchSize variable used in each place. Then predict a 40-request flood&#x27;s timing (slower, one at a time) and its sent count - still exactly 40. Changing only the step would resend overlapping ranges (batch at i=0 covers 0-9, then i=1 covers 1-10), quietly sending far more than 40 - a real bug pattern worth noticing, and worth verifying with the status line&#x27;s &#x27;sent&#x27; number.
+</p>
+<h2>28.4 fixedWindow.test.ts - the 120-out-of-60 proof
+</h2>
+<pre>const clock = makeClock(59_900);   // start 59.9 seconds into a window
+const limiter = new FixedWindowLimiter({ limit: 60, windowSeconds: 60, now: clock.now });
+let allowed = 0;
+for (let i = 0; i &lt; 60; i++) if ((await limiter.consume(&#x27;user&#x27;)).allowed) allowed++;
+clock.advanceMs(200);   // cross into the next window
+for (let i = 0; i &lt; 60; i++) if ((await limiter.consume(&#x27;user&#x27;)).allowed) allowed++;
+expect(allowed).toBe(120);</pre>
+<ul><li>Starting the clock at 59_900 places the first burst at the END of a window. After advanceMs(200) the same caller is in a fresh window with a fresh counter - so 60 + 60 requests pass inside two seconds, and the test asserts the scandalous total on purpose.
+</li><li><strong>allowed++</strong> is the one-more-than shorthand (++ is += 1). A single-line if needs no braces: if (cond) statement.
+</li><li>This is a test that documents a weakness - a test can pin down behavior the project does NOT endorse, so future readers see it demonstrated rather than claimed. The other two tests in the file cover the normal contract: the 101st request rejected, and the counter resetting in the next window.
+</li></ul>
+<p><strong>Try it:</strong> change the start to 30_000 (mid-window) and predict the new total: 60, because both bursts land in windows already partly consumed... trace it, then run npm test and see. Reading a failing expectation is the exercise.
+</p>
+<h2>28.5 middleware.test.ts - the contract, tested end to end
+</h2>
+<pre>const res = await request(app).get(&#x27;/limited&#x27;).set(&#x27;x-api-key&#x27;, &#x27;key-a&#x27;);
+expect(res.status).toBe(200);
+expect(res.headers[&#x27;x-ratelimit-remaining&#x27;]).toBe(&#x27;2&#x27;);</pre>
+<ul><li>supertest&#x27;s request(app) fires a real HTTP request at the Express app in-memory - no port, no server process. .set(name, value) adds a request header.
+</li><li>Two quiet facts pinned here: header names arrive lowercased (&#x27;x-ratelimit-remaining&#x27;), and header VALUES are always strings - &#x27;2&#x27; with quotes, not the number 2. toBe compares exactly; toEqual (used later for the JSON body) compares contents field by field.
+</li><li>The 429 test asserts the full rejection contract at once: status 429, a Retry-After header of at least 1 second, and a JSON body whose retry_after_seconds is expect.any(Number) - &#x27;any number will do, but it must be a number&#x27;. expect.any checks the TYPE without fixing the value.
+</li><li>The key-isolation test floods the &#x27;noisy&#x27; key to 429, then proves the &#x27;quiet&#x27; key still gets 200 - per-caller buckets, verified through real HTTP. And the last test counts how often the route handler runs across three requests with capacity 1: exactly once. That is &#x27;the flood stops at the gate&#x27; (17.1) measured, not asserted.
+</li></ul>
+<p><strong>Try it:</strong> in buildTestApp, change capacity from 3 to 1 and predict which of the five tests turn red before running npm test. Then change the keyGenerator to always return &#x27;same&#x27; and predict what the key-isolation test does now.
+</p>
+<h2>28.6 durableObject.test.ts - faking the platform
+</h2>
+<pre>class FakeStorage {
+  readonly map = new Map&lt;string, unknown&gt;();
+  async get&lt;T&gt;(key: string): Promise&lt;T | undefined&gt; {
+    return this.map.get(key) as T | undefined;
+  }
+  // ...put, delete, list - same idea: the Map wearing the platform&#x27;s costume...
+}
+const state = { storage } as unknown as DurableObjectState;
+return new RateLimiterDO(state);</pre>
+<ul><li>The Durable Object expects storage shaped like Cloudflare&#x27;s. FakeStorage provides the same four operations (get, put, delete, list) over a plain Map - structural typing from 12.4 doing real work: the object never checks the costume, only the shape.
+</li><li><strong>unknown</strong> is TypeScript&#x27;s careful &#x27;could be anything&#x27;: you may store it, but you must say what it is (as T) before using it. get&lt;T&gt; uses the generic from 25.1 so each caller names the type it expects back.
+</li><li><strong>as unknown as DurableObjectState</strong> is a double cast: &#x27;this plain object is not a real DurableObjectState, compiler, let it pass anyway&#x27;. Casts this strong are for test doubles - fakes standing in for platform objects - and the file uses it exactly there, nowhere in the shipped code.
+</li><li>What the tests prove: two DurableObjectLimiter clients over one object share buckets (the many-isolate problem from 21.4, reproduced on a laptop); a FRESH object over the SAME storage keeps the buckets (persistence survives restarts); and the stats feed matches the shape the dashboard draws (28.3&#x27;s seconds array).
+</li></ul>
+<p><strong>Try it:</strong> make the two clients in the sharing test use different keys and predict: each gets its own full capacity. Then give them the same key and predict the shared depletion - run and check.
+</p>
+<p>Update note, 9 Nov 2026, 2:57 AM IST: section 28 added - the fixed/sliding window implementations, the dashboard&#x27;s firing/drawing code, and the three remaining test files are now walked with real code, new constructs explained at first use, and a runnable edit-and-predict exercise each. Section 27&#x27;s coverage statement updated to match. No code changed.
+</p>
+<h1>29. Feature upgrade 1: tiered plans (free and pro API keys)
+</h1>
+<p>What it is, in plain words: until now the limiter treated every caller the same. Real APIs do not - a weather API sells a free tier and a paid tier, and the paid tier gets a bigger allowance. This upgrade makes the limiter multi-tenant: one limiter, several customers, each with their own limit. A &quot;plan&quot; is just two numbers (burst size and refill rate) with a name, and an API key says which plan a caller is on.
+</p>
+<p>Why this is more than a basic limiter: a single-bucket counter limits traffic; a tiered system runs a pricing model. Limits stop being one global constant and become per-customer policy, which is what &quot;API product&quot; actually means. The demo proves it visibly: the free key exhausts at 10 requests per minute while the pro key still has 90 of its 100 left, and one tenant burning their budget never touches another tenant&#x27;s.
+</p>
+<p>The mechanism, walked through. The plans registry is plain data (src/core/plans.ts):
+</p>
+<pre>export const PLANS: Record&lt;string, Plan&gt; = {
+  free: { name: &#x27;free&#x27;, capacity: 10, refillPerSecond: 10 / 60 },
+  pro:  { name: &#x27;pro&#x27;,  capacity: 100, refillPerSecond: 100 / 60 },
+};</pre>
+<pre>export function planForApiKey(apiKey: string | undefined): Plan {
+  const planName = (apiKey &amp;&amp; DEMO_API_KEYS[apiKey]) || &#x27;free&#x27;;
+  return PLANS[planName];
+}</pre>
+<p>Unknown keys fall through to the free plan - the same choice freemium APIs make when they allow keyless trial access. The demo keys (demo-free-key, demo-pro-key) are PUBLIC DEMO CREDENTIALS, not secrets: they exist so anyone can try both plans against the live demo. A production system would issue keys per customer and store only their hashes; shipping keys in source is fine here precisely because they protect nothing valuable.
+</p>
+<p>The route (src/demo/server.ts, /api/ledger) builds one limiter per plan and picks between them per request - the middleware&#x27;s limiter option became a function for exactly this. Buckets stay isolated because the shared store keys them by limiter id + caller key: ledger:free:demo-free-key and ledger:pro:demo-pro-key never overlap. A 429 names the caller&#x27;s plan and how to get a higher limit:
+</p>
+<pre>app.get(&#x27;/api/ledger&#x27;, rateLimit({
+  limiter: (req) =&gt; planLimiters[planOf(req).name],
+  keyGenerator: (req) =&gt; req.header(&#x27;x-api-key&#x27;) ?? req.ip ?? &#x27;unknown-ip&#x27;,
+  rejectedExtra: (req) =&gt; ({
+    plan: plan.name,
+    limit_per_minute: plan.capacity,
+    ...(plan.name === &#x27;free&#x27;
+      ? { upgrade: &#x27;A pro API key raises this limit to 100/minute (try demo key: demo-pro-key).&#x27; }
+      : {}),
+  }),
+}), handler);</pre>
+<p>Alternatives considered: one hardcoded limit per route (what we had - fine for a demo, not a product); a customer database (the honest next step, but heavier than the lesson needs); keying by IP only (cannot distinguish a paying customer from a free one on the same network).
+</p>
+<p>Failure cases, stated: an unknown key fails closed-but-usable (free plan, its own bucket); a pro key shared publicly just drains that key&#x27;s bucket - isolation by key contains the damage; a missing key header falls back to the caller&#x27;s IP, the same as before.
+</p>
+<p>Tests (test/plans.test.ts): the registry maps demo keys to plans and unknown keys to free; a free key exhausts at exactly 10 while a pro key continues with limit 100 in its headers; an unknown key gets its own free bucket.
+</p>
+<p>Try it yourself: fire eleven requests at /api/ledger with header &quot;x-api-key: demo-free-key&quot; - the eleventh answers 429 with &quot;plan&quot;: &quot;free&quot; and the upgrade hint. Repeat with demo-pro-key and watch X-RateLimit-Limit read 100.
+</p>
+<h1>30. Feature upgrade 2: cost-based limiting
+</h1>
+<p>What it is, in plain words: before, every request spent exactly one token, as if a cheap lookup and an expensive report cost the same. Now a route can declare what a call actually costs: /api/heavy spends 3 of your 10 tokens per call, so you get three calls, then wait.
+</p>
+<p>Why this is more than a basic limiter: counting requests protects against floods; measuring cost protects the actual resource - CPU seconds, database time, money. This is how real quotas work (an API that charges 1 credit per lookup and 50 per report). Quotas stop being a headcount and become economics.
+</p>
+<p>The mechanism: the change threads one optional number through the whole stack. The RateLimiter interface became consume(key, cost = 1); the pure decision math spends cost tokens and refuses impossible costs up front; the middleware passes the route&#x27;s cost; the Durable Object validates and applies the same math in shared storage:
+</p>
+<pre>if (tokens &gt;= cost) {
+  const afterSpend = tokens - cost;
+  ... // allowed: spend the tokens
+}
+const secondsToWait = (cost - tokens) / refillPerSecond; // rejected: wait for the missing tokens</pre>
+<p>The guard worth noticing: assertValidCost throws when cost exceeds capacity, because such a request could NEVER be allowed - the bucket can never hold that much. Silently denying forever would look like a bug; a loud config error is the honest behavior. The test suite pins this.
+</p>
+<p>Alternatives considered: separate buckets per route cost (multiplies state for no insight); charging after the work is done (the resource is already spent - too late). Charging at the gate, in tokens, is the whole point.
+</p>
+<p>Failure cases: a zero or negative cost is rejected as a config error; a cost between 1 and capacity just waits longer (retry-after is the time to earn the MISSING tokens, not a fixed penalty).
+</p>
+<p>Tests (test/tokenBucket.test.ts, test/middleware.test.ts): spending 3 of 10 leaves 7; a 3-cost request against 1 remaining token is rejected with a 2-second retry-after (the time to earn 2 more at 1/sec); cost above capacity throws; the middleware header reflects the cost.
+</p>
+<p>Try it yourself: three calls to /api/heavy pass, the fourth waits 12 seconds - the same refill math from section 14, spent in batches of 3.
+</p>
+<h1>31. Feature upgrade 3: escalating penalties (jail)
+</h1>
+<p>What it is, in plain words: a plain limit treats your first violation and your hundredth the same - wait a few seconds, try again. For a login route that is an invitation: password spraying works precisely because each guess is nearly free. Jail changes the economics: every rejection doubles the next block (30 seconds, then 60, then 120, capped at 30 minutes).
+</p>
+<p>Why this is more than a basic limiter: it turns flood protection into an anti-abuse POLICY with a memory. A real user who fumbles one password waits seconds and is forgiven completely on success - the record clears. An attacker running ten thousand guesses pays exponentially for each one. Security features you can explain as mechanism, not labels, are exactly what interviewers probe for.
+</p>
+<p>The mechanism: the escalation math is one pure function (src/core/jail.ts), shared by the local wrapper and the shared store, the same philosophy as the bucket math:
+</p>
+<pre>export function nextPenalty(prev: PenaltyState | undefined, nowMs: number): PenaltyState {
+  const violations = (prev?.violations ?? 0) + 1;
+  const blockSeconds = Math.min(JAIL_MAX_SECONDS, JAIL_BASE_SECONDS * 2 ** (violations - 1));
+  return { violations, blockedUntilMs: nowMs + blockSeconds * 1000 };
+}</pre>
+<p>Where the jail records live is the important decision: in the Durable Object&#x27;s storage, not local memory. A jail that exists only per-isolate is one an attacker escapes by landing on the next copy of the worker. A success deletes the record (forgiveness), and idle records are evicted with the same 10-minute policy as buckets (bounded memory). Honest limit, stated in the code: there is no gradual decay of the violation count short of a success or eviction.
+</p>
+<p>A subtlety the test suite pinned: retry-after is the MAX of the bucket&#x27;s own wait and the jail block. Jail raises the floor; it never shortens a longer bucket wait. (The first version of the test expected jail to dominate a 1-hour bucket wait - the math said otherwise, and the test was wrong, not the code. Same lesson as the reset-time bug in section 7: write the assertion from the math.)
+</p>
+<p>Alternatives considered: permanent bans (one fumble locks a real user forever - unacceptable); IP bans (shared networks punish the innocent); a fixed long block (attackers just wait it out; exponential growth is what changes THEIR economics).
+</p>
+<p>Tests (test/jail.test.ts): the escalation doubles and caps at 30 minutes; an active block refuses without touching the bucket; a success resets the count to zero; the shared-store jail survives object eviction; non-jail routes ignore penalty records entirely.
+</p>
+<p>Try it yourself: six wrong logins against /api/login with the same username - the sixth waits 30 seconds, not 12. A different username is completely unaffected.
+</p>
+<h1>32. Feature upgrade 4: the live concurrency proof
+</h1>
+<p>What it is, in plain words: click &quot;Run the proof&quot; on the dashboard. Twenty requests fire at the same instant at a fresh bucket of 10 tokens. Exactly 10 pass. Every time. The endpoint exists so the shared store&#x27;s central claim - atomic check-and-spend - is something anyone can rerun, not a sentence you have to believe.
+</p>
+<p>Why this is more than a basic limiter: the hard part of rate limiting across many servers is the race - two requests both read &quot;1 token left&quot; and both spend it. Section 21 explained why a Durable Object closes that race (single-threaded; Cloudflare&#x27;s input gates serialize storage-touching work - the platform&#x27;s own documentation shows the exact read-then-write pattern as safe). This upgrade turns that documented guarantee into a live demonstration. The honest scope, stated in the docs and in the endpoint&#x27;s own response: the run DEMONSTRATES the behaviour on a bounded burst; the guarantee itself comes from the platform&#x27;s semantics and is pinned by the test suite. Demonstrating is not proving - and saying so is part of the engineering.
+</p>
+<p>The mechanism: fire N parallel consumes, count the allows (src/demo/proof.ts):
+</p>
+<pre>const results = await Promise.all(Array.from({ length: n }, consumeOne));
+const allowed = results.filter((r) =&gt; r.allowed).length;
+return { requested: n, limit: k, allowed, rejected: n - allowed, passed: allowed === k };</pre>
+<p>The safety design matters as much as the proof, because a public demo defends itself: every run uses a fresh throwaway probe key (crypto.randomUUID) so it can never touch a real caller&#x27;s bucket; the burst is fixed and small (20 requests, limit 10); refill is set to roughly zero during the burst so clock noise cannot blur the count; and the endpoint rate-limits ITSELF to 10 runs per minute per visitor - enforced through the same shared store, of course. Twenty requests against the free tier&#x27;s 100,000-requests-per-day allowance is negligible, which was verified against Cloudflare&#x27;s published limits before this shipped.
+</p>
+<p>Alternatives considered: a load-test script you run from your laptop (proves nothing about the deployed shared store, and looks like an attack from one IP); a permanent always-on stress bucket (noise in the stats feed); trusting the documentation without a demonstration (the failure mode of every &quot;it scales&quot; claim).
+</p>
+<p>Tests (test/proof.test.ts): exactly K of N on a local bucket; exactly K of N through the shared store with the input-gate behavior modeled as a queue (storage-touching events serialized - the unit test models the guarantee, the live endpoint demonstrates the real thing); the proof endpoint returns 429 after 10 runs in a minute.
+</p>
+<p>Try it yourself: the Concurrency proof card on the dashboard, or curl -X POST https://api-rate-limiter.2wf0w2.workers.dev/__rl/atomicity-proof - the response explains its own result.
+</p>
+<p>Update note, 12 Nov 2026, ~12:20 PM IST: sections 29-32 added - the four feature upgrades Shubhra picked from the upgrade menu (tiered plans, cost-based limiting, escalating penalties, the live concurrency proof), each with the mechanism, the code, the alternatives considered, the failure cases and the tests. All four are built, tested (35/35) and live-verified: commits 9ca3d1e (plans + cost-based), 6ff3b05 (jail), ca07d44 (concurrency proof), 0fced17 (wording precision).
+</p>
+<h1>33. Scaling, honestly: what breaks first, and the documented path past it
+</h1>
+<p>Why this section exists: a mentor asked the right question - how would this handle lakhs of users? The honest answer splits &quot;users&quot; from &quot;requests&quot;. A registered-user count alone says nothing about load; what matters is requests per second and requests per day. Two very different workloads can both be called &quot;a lakh of users&quot;: occasional demo clicks, or a hundred API calls per user per day (about ten million requests a day). The second hits the account&#x27;s free-tier cap long before any code-level limit.
+</p>
+<p>The first ceiling is the plan, not the design. On Workers Free, a worker is allowed 100,000 requests per day (Cloudflare Workers limits: https://developers.cloudflare.com/workers/platform/limits/ - read 12 Nov 2026; this is plan-dependent and paid plans raise it). Ten million requests a day is a hundred times that. So &quot;handling lakhs of users&quot; on the current free plan is ruled out by quota before architecture even enters the discussion.
+</p>
+<p>The architectural ceiling, as actually built: every rate-limit decision - every route, plan and caller, plus the concurrency-proof endpoint - goes through ONE Durable Object instance (idFromName(&#x27;global&#x27;) in src/worker.ts). That single-threaded object is exactly what makes check-and-spend atomic; the guarantee the concurrency proof demonstrates comes from requests serializing through it. Cloudflare&#x27;s Durable Objects limits page (https://developers.cloudflare.com/durable-objects/platform/limits/ - read 12 Nov 2026) gives an individual object a SOFT LIMIT of 1,000 requests per second, after which it queues and then returns overload errors. These are published ceilings, not benchmarks of this project: no sustained-load test was run, so the real ceiling of this build is unknown and is stated here as unknown. Two things in this build would pull it below the published number: each decision performs several storage operations (a bucket put, plus a stats get+put for the dashboard feed on every request; jail routes add a penalty read and sometimes a write), and the once-a-minute prune and the stats snapshot use list() over storage, which Cloudflare notes reduces throughput.
+</p>
+<p>Memory is bounded by policy, and that policy is pinned by the test suite - separately from the concurrency demo: the 10,000-key cache cap and the 10-minute idle eviction of buckets and jail records are asserted in the MemoryStore and Durable Object unit tests. What has NOT been measured: CPU time per decision and storage latency under sustained load. So this doc does not claim either is or is not a bottleneck; it claims only that storage size is bounded by the policies above.
+</p>
+<p>The documented scale path - a proposal, not built: Cloudflare&#x27;s answer is horizontal sharding, and a namespace allows unlimited objects. Sharding this build would mean replacing the single idFromName(&#x27;global&#x27;) with a per-limiter or per-caller-hash id, AND rerouting everything that touches the shared object today: the consume calls, the concurrency-proof endpoint, the stats feed and its snapshot, and the prune pass. Per-key atomicity survives because one caller key would always map to one object. But a genuinely hot key still lives in exactly one object, so sharding does not rescue a single hot key - that case needs a different design (for example splitting the budget across objects up front, at the cost of exactness). The global stats view would need its own object or per-shard feeds, and cross-shard totals stop being free. None of this is implemented. The current design is the single shared object, chosen deliberately because it makes the atomicity lesson possible at demo scale.
+</p>
+<p>Beyond this project: multi-region stores, or Cloudflare&#x27;s native rate-limiting rules for coarse edge protection, are product territory and out of scope here.
+</p>
+<p>Try it yourself: open src/worker.ts and find the single idFromName call. That one argument - &#x27;global&#x27; - is the current design. Write down everything that would have to change if it became idFromName(limiterId), then check your list against the section above.
+</p>
+<p>Update note, 12 Nov 2026, ~12:30 PM IST: section 33 added - the honest scaling picture, written after Shubhra&#x27;s mentor asked how the project would handle lakh-scale usage. No code changed, nothing was load-tested, and the numbers quoted are Cloudflare&#x27;s published limits, not benchmarks of this project.
+</p>

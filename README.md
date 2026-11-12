@@ -1,10 +1,12 @@
 # API Rate Limiter
 
-A token-bucket API rate limiter for Express, with per-route limits, standard
-rate-limit headers, correct 429 handling, a live allow/reject demo dashboard,
-a shared store for multi-instance deployments, and a fully tested core. Built
-to learn - and to be able to explain - the classic "design a rate limiter"
-system-design interview question with working code behind it.
+A token-bucket API rate limiter for Express, with per-route limits, tiered
+API-key plans (free/pro), cost-based limiting, escalating anti-abuse
+penalties, a live concurrency proof, standard rate-limit headers, correct
+429 handling, a live demo dashboard, a shared store for multi-instance
+deployments, and a fully tested core. Built to learn - and to be able to
+explain - the classic "design a rate limiter" system-design interview
+question with working code behind it.
 
 **Live demo:** https://api-rate-limiter.2wf0w2.workers.dev (Cloudflare Workers
 free tier; bucket state shared across instances via a Durable Object)
@@ -13,7 +15,7 @@ free tier; bucket state shared across instances via a Durable Object)
 
 ```bash
 npm install
-npm test          # 20 tests: algorithms + middleware + shared store
+npm test          # 35 tests: algorithms + middleware + plans + jail + proof + shared store
 npm run dev       # demo server on http://localhost:8787
 ```
 
@@ -31,8 +33,11 @@ rejected traffic per second.
 | Memory store | `src/core/memoryStore.ts` | Per-key bucket state for one process: capped at 10,000 keys, idle keys evicted after 10 minutes |
 | Durable Object store | `src/cloud/durableObject.ts` | The shared store on Cloudflare: one named, single-threaded object every worker isolate spends from; decisions are atomic and persisted |
 | DO-backed limiter | `src/cloud/durableObjectLimiter.ts` | Same `RateLimiter` contract, delegates decisions to the shared store |
-| Middleware | `src/middleware/rateLimit.ts` | Express middleware: headers, 429 + Retry-After, per-route keying |
-| Demo API | `src/demo/server.ts` | Three routes with three limits (loose read, strict login, per-API-key) |
+| Plans registry | `src/core/plans.ts` | Tiered plans: API key -> plan (free 10/min, pro 100/min); unknown keys get free |
+| Jail | `src/core/jail.ts` | Escalating penalties: rejections lengthen the next block exponentially; pure math shared by local + shared stores |
+| Middleware | `src/middleware/rateLimit.ts` | Express middleware: headers, 429 + Retry-After, per-route keying, per-request cost, per-request limiter (plans) |
+| Concurrency proof | `src/demo/proof.ts` | Fires N parallel requests at a fresh K-limit key and counts exactly K allowed - atomicity demonstrated, not asserted |
+| Demo API | `src/demo/server.ts` | Four routes with four lessons (loose read, strict login with jail, cost-based heavy, tiered plans) |
 | Worker entry | `src/worker.ts` | Runs the same app on Cloudflare Workers; serves the stats feed from the shared store |
 | Live dashboard | `public/index.html` | Canvas chart of allowed vs rejected per second, plus fire buttons |
 | Tests | `test/` | At-limit behavior, refill math, bursts, per-key isolation, 429 shape, shared-store semantics |
@@ -103,12 +108,31 @@ npx wrangler deploy   # needs a Cloudflare account; free tier is enough
 The Durable Object migration in `wrangler.jsonc` applies automatically on
 first deploy.
 
+## The four feature upgrades (12 Nov 2026)
+
+- **Tiered plans (`/api/ledger`)** - one limiter, several customers, each
+  with their own limit. The demo keys `demo-free-key` / `demo-pro-key` are
+  public demo credentials: watch the free key exhaust at 10/min while the
+  pro key still has 90 left. Unknown keys get the free plan.
+- **Cost-based limiting (`/api/heavy`)** - an expensive route spends 3 of
+  the caller's 10 tokens per call. Quotas measure resource use, not just
+  request count.
+- **Escalating penalties (`/api/login`)** - rejections lengthen the next
+  block exponentially (30s, 60s, 120s, ... capped at 30 min); a success
+  clears the record. Password spraying pays exponentially; a real user's
+  one fumble costs seconds.
+- **Live concurrency proof (`/__rl/atomicity-proof`)** - one dashboard
+  click fires 20 parallel requests at a fresh limit-10 key: exactly 10 are
+  allowed. The guarantee comes from the Durable Object's documented
+  single-threaded check-and-spend; the button demonstrates it on a bounded
+  run you can rerun. The endpoint rate-limits itself (10 runs/min).
+
 ## Roadmap
 
 - [x] Token bucket, fixed window, sliding window cores with tests
 - [x] Express middleware with headers + 429 contract
-- [x] Live demo dashboard (allowed vs rejected chart)
+- [x] Live demo dashboard (allowed vs rejected chart + concurrency proof)
 - [x] Cloudflare Workers deployment of the demo
 - [x] Shared store (Durable Objects) so limits hold across instances
-- [ ] Shubhra's own features - the foundation is deliberately clean so her ideas have room
-- [ ] Optional, only if she wants it: protect StudyFlow's own API with this middleware
+- [x] Tiered plans, cost-based limiting, escalating penalties, concurrency proof
+- [ ] Shubhra's next ideas - the foundation is deliberately clean so they have room

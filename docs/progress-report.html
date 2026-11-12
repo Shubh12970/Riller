@@ -1,51 +1,146 @@
-<p>API Rate Limiter - Progress Report</p>
-<p>Living status for mentor project 2 of 2. Updated at every milestone. Companion document: "API Rate Limiter - Documentation" (same folder) explains the how and why; this file tracks the what and when.</p>
-
-<h1>Status at a glance</h1>
+<p>API Rate Limiter - Progress Report
+</p>
+<p>Living status for mentor project 2 of 2. Updated at every milestone. Companion document: &quot;API Rate Limiter - Documentation&quot; (same folder) explains the how and why; this file tracks the what and when.
+</p>
+<h1>Status at a glance
+</h1>
 <table>
-<tr><td><strong>Piece</strong></td><td><strong>State (9 Nov 2026, ~2:40 AM IST)</strong></td></tr>
-<tr><td>Core algorithms (token bucket, fixed window, sliding window)</td><td>DONE - written, unit-tested</td></tr>
-<tr><td>Express middleware (headers, 429 + Retry-After, per-route keying)</td><td>DONE - written, integration-tested</td></tr>
-<tr><td>Demo API (3 routes, 3 different limits)</td><td>DONE - verified locally and live</td></tr>
-<tr><td>Live dashboard (allowed vs rejected chart)</td><td>DONE - deployed and verified in a real browser; global stats feed via the shared store</td></tr>
-<tr><td>Shared store (Durable Objects)</td><td>DONE - live, atomic decisions, verified end to end</td></tr>
-<tr><td>Automated tests</td><td>20/20 passing (vitest)</td></tr>
-<tr><td>GitHub repository</td><td>PRIVATE (her choice), three milestone commits pushed (c951571, 56560e8, and the shared-store commit)</td></tr>
-<tr><td>Cloudflare Workers live demo</td><td>LIVE - https://api-rate-limiter.2wf0w2.workers.dev</td></tr>
-<tr><td>Documentation (tech stack, why, alternatives, build log)</td><td>DONE through the shared-store milestone, grows with the project</td></tr>
-<tr><td>Shubhra's own feature ideas</td><td>Not started - by design, foundations first so she can see the flow and direct changes</td></tr>
+<tr>
+<td><strong>Piece
+</strong></td>
+<td><strong>State (9 Nov 2026, ~2:31 AM IST)
+</strong></td>
+</tr>
+<tr>
+<td>Core algorithms (token bucket, fixed window, sliding window)</td>
+<td>DONE - written, unit-tested</td>
+</tr>
+<tr>
+<td>Express middleware (headers, 429 + Retry-After, per-route keying)</td>
+<td>DONE - written, integration-tested</td>
+</tr>
+<tr>
+<td>Demo API (3 routes, 3 different limits)</td>
+<td>DONE - smoke-tested live locally</td>
+</tr>
+<tr>
+<td>Live dashboard (allowed vs rejected chart)</td>
+<td>DONE - deployed and verified in a real browser; global stats feed via the shared store</td>
+</tr>
+<tr>
+<td>Automated tests</td>
+<td>20/20 passing (vitest)</td>
+</tr>
+<tr>
+<td>GitHub repository</td>
+<td>PRIVATE (her choice), three milestone commits pushed: c951571, 56560e8, 0453cd6</td>
+</tr>
+<tr>
+<td>Cloudflare Workers live demo</td>
+<td>LIVE - https://api-rate-limiter.2wf0w2.workers.dev</td>
+</tr>
+<tr>
+<td>Documentation (tech stack, why, alternatives, build log)</td>
+<td>DONE for stage 1, grows with the project</td>
+</tr>
+<tr>
+<td>Shubhra&#x27;s own feature ideas</td>
+<td>Not started - by design, foundations first so she can see the flow and direct changes</td>
+</tr>
 </table>
-
-<h1>Links</h1>
-<ul>
-<li>Live demo: https://api-rate-limiter.2wf0w2.workers.dev</li>
-<li>Repository: github.com/Shubh12970/API-Rate-Limiter (private, all milestones pushed)</li>
-<li>Drive folder: ALL Projects → FULL STACK → API_Rate_Limiter (shubhrajyothsna220@gmail.com)</li>
-<li>Documentation: "API Rate Limiter - Documentation" (this folder)</li>
-</ul>
-
-<h1>Milestones</h1>
+<h1>Links
+</h1>
+<ul><li>Repository: github.com/Shubh12970/API-Rate-Limiter (private, all milestones pushed)
+</li><li>Drive folder: her private Google Drive folder (API_Rate_Limiter)
+</li><li>Documentation: &quot;API Rate Limiter - Documentation&quot; (this folder)
+</li></ul>
+<h1>Milestones
+</h1>
 <table>
-<tr><td><strong>#</strong></td><td><strong>Milestone</strong></td><td><strong>Commit message</strong></td><td><strong>State</strong></td></tr>
-<tr><td>M1</td><td>Core algorithms + middleware + demo API + live dashboard + tests</td><td>"Add rate limiter core, Express middleware, demo API and live dashboard"</td><td>DONE - pushed as c951571</td></tr>
-<tr><td>M2</td><td>First GitHub push (private repo)</td><td>(same as M1)</td><td>DONE - 2:14 AM after the token update</td></tr>
-<tr><td>M3</td><td>Cloudflare Workers deployment + live link</td><td>"Deploy demo to Cloudflare Workers and document the project"</td><td>DONE - 56560e8, verified in a real browser</td></tr>
-<tr><td>M4</td><td>Shared store - Durable Objects (Cloudflare's native multi-server store; Redis is the self-hosted equivalent)</td><td>"Add shared rate-limit store via Durable Objects and bound the public demo"</td><td>DONE - 6 new tests (20 total), verified live</td></tr>
-<tr><td>M5</td><td>Shubhra's own features / changes</td><td>-</td><td>Awaiting her review of the working foundation</td></tr>
+<tr>
+<td><strong>#
+</strong></td>
+<td><strong>Milestone
+</strong></td>
+<td><strong>Commit message
+</strong></td>
+<td><strong>State
+</strong></td>
+</tr>
+<tr>
+<td>M1</td>
+<td>Core algorithms + middleware + demo API + live dashboard + tests</td>
+<td>&quot;Add rate limiter core, Express middleware, demo API and live dashboard&quot;</td>
+<td>DONE - pushed as c951571</td>
+</tr>
+<tr>
+<td>M2</td>
+<td>First GitHub push</td>
+<td>(same as M1)</td>
+<td>DONE - 2:14 AM after the token update</td>
+</tr>
+<tr>
+<td>M3</td>
+<td>Cloudflare Workers deployment + live link</td>
+<td>-</td>
+<td>DONE - 56560e8, verified in a real browser</td>
+</tr>
+<tr>
+<td>M4</td>
+<td>Shared store - Durable Objects (Cloudflare&#x27;s native multi-server store)</td>
+<td>-</td>
+<td>DONE - 0453cd6, 6 new tests (20 total), verified live</td>
+</tr>
+<tr>
+<td>M5</td>
+<td>Shubhra&#x27;s own features / changes</td>
+<td>-</td>
+<td>Awaiting her review of the working foundation</td>
+</tr>
 </table>
-
-<h1>Waiting on</h1>
-<p>Nothing external right now - GitHub token permissions and repo visibility were both resolved at 2:13 AM (repo is private by her choice). Next milestone is Shubhra's review and her own feature ideas.</p>
-
-<h1>Change log</h1>
+<h1>Waiting on
+</h1>
+<ul><li>Nothing external right now. All four chosen feature upgrades are built, tested and live (12 Nov 2026 - see the change log). The repo stays PRIVATE until Shubhra answers the email-history question (her 220 Gmail appears in an old committed doc; her 129 Gmail is the commit-author address). Next after her call: public visibility, then the resume/CV update.
+</li></ul>
+<h1>Change log
+</h1>
 <table>
-<tr><td><strong>When (IST)</strong></td><td><strong>What happened</strong></td></tr>
-<tr><td>9 Nov 2026, ~2:05 AM</td><td>Project started. Stack chosen, scaffold up.</td></tr>
-<tr><td>9 Nov 2026, ~2:07 AM</td><td>M1 built: 3 algorithms, middleware, demo API, dashboard, 14 tests passing (tests caught and fixed a real reset-time bug). Repo created. Push blocked by token scope.</td></tr>
-<tr><td>9 Nov 2026, ~2:10 AM</td><td>Drive folder created; dark Documentation doc written and verified page by page; this Progress Report created.</td></tr>
-<tr><td>9 Nov 2026, ~2:14 AM</td><td>Token permissions fixed by Shubhra; repo set private (her choice); M1+M2 pushed (c951571).</td></tr>
-<tr><td>9 Nov 2026, ~2:16 AM</td><td>M3 deployed: live demo on Cloudflare Workers (56560e8), verified end to end with a real browser. Runtime fix: Express's built-in JSON parsing chain (iconv-lite) cannot run on Workers, so the API uses a small built-for-purpose UTF-8 JSON parser.</td></tr>
-<tr><td>9 Nov 2026, ~2:40 AM</td><td>M4 built + deployed: Durable Objects shared store - limits now hold across every copy of the worker, decisions are atomic inside one named object, and the dashboard chart shows global traffic. Verified live (20 login attempts → exactly 5 allowed / 15 rejected; chart totals matched curl checks). Also: demo made self-defending (button caps + batches, 10k bucket cap, idle eviction), UI copy corrected, 20/20 tests.</td></tr>
+<tr>
+<td><strong>When (IST)
+</strong></td>
+<td><strong>What happened
+</strong></td>
+</tr>
+<tr>
+<td>9 Nov 2026, ~2:05 AM</td>
+<td>Project started. Stack chosen, scaffold up.</td>
+</tr>
+<tr>
+<td>9 Nov 2026, ~2:07 AM</td>
+<td>M1 built: 3 algorithms, middleware, demo API, dashboard, 14 tests passing (tests caught and fixed a real reset-time bug). Repo created. Push blocked by token scope.</td>
+</tr>
+<tr>
+<td>9 Nov 2026, ~2:10 AM</td>
+<td>Drive folder created; dark Documentation doc written and verified page by page; this Progress Report created.</td>
+</tr>
 </table>
-
-<p>Ready for Shubhra's review: live link, both Drive docs, and the private repo are in place. Her own feature ideas are the next milestone.</p>
+<h1>Update - 9 Nov 2026, 2:16 AM IST: live deployment + first pushes
+</h1>
+<ul><li>Milestone 2 DEPLOYED: live demo at https://api-rate-limiter.2wf0w2.workers.dev - verified end to end: rate-limit headers on every response, the login route rejects attempts past 5/minute with 429 + Retry-After, and the live chart records allowed vs rejected traffic (screenshot verified in a real browser).
+</li><li>GitHub: the repository is PRIVATE (verified: unauthenticated access returns 404) and holds both commits: c951571 (core + middleware + demo + dashboard + 14 tests) and 56560e8 (Workers deployment).
+</li><li>Runtime fix: Express&#x27;s built-in JSON parsing chain (iconv-lite) cannot run on Cloudflare Workers, so the API now uses a small built-for-purpose UTF-8 JSON parser. All 14 tests still pass; behaviour unchanged.
+</li><li>Honest demo caveat: Cloudflare runs several copies of the worker (isolates), each with its own memory, so the chart shows one copy&#x27;s view and very fast floods can split across copies. This is the documented in-memory limitation made visible; the planned shared store fixes it.
+</li><li>Update - 9 Nov 2026, 2:31 AM IST: shared-store milestone (M4)
+</li><li>M4 DONE (commit 0453cd6, &quot;Add shared rate-limit store via Durable Objects and bound the public demo&quot;): a Durable Object now holds every bucket and the stats feed, so limits hold across all copies of the worker and decisions are atomic. Verified live: 20 login attempts produced exactly 5 allowed and 15 rejected; chart totals matched curl checks exactly. Also in this push: the demo is self-defending (buttons capped at 150 in batches of 10; 10,000-bucket cap per store; 10-minute idle eviction; 1 MB body cap), the UI copy was corrected (a single request only passes while tokens remain), and a real Cloudflare constraint was found and documented (per-request pipeline, because a Durable Object stub belongs to the request that created it). Tests: 20/20. The stale status rows above were corrected in place.
+</li><li>Ready for Shubhra&#x27;s review: live link, both Drive docs, and the private repo are in place. Her own feature ideas are the next milestone.
+</li></ul>
+<p>9 Nov 2026, ~2:45 AM - Documentation expanded into a beginner-first walkthrough (new sections 10-24 in the Documentation doc: web basics, tools, step-by-step build, exercises, mistakes, built-vs-not-built) per Shubhra&#x27;s 2:38 AM instruction. No code changes; feature work paused pending her review.
+</p>
+<p>9 Nov 2026, ~2:55 AM - Documentation corrections + expansion round 2: six technical overstatements fixed in place (interface exactness now structural typing; Node/.ts claim version-scoped; backwards-clock risk corrected to token drain; burst example now honest about averages; Map O(1) now average-case; fixed/sliding windows now tradeoffs with legitimate use cases). Sections 25-27 added: every remaining source file walked by teaching excerpt, a syntax quick-reference, and an honest coverage statement. Code blocks marked as teaching excerpts. No code changes; pushes remain paused.
+</p>
+<p>9 Nov 2026, ~2:57 AM - Documentation round 3: section 28 added - fixed/sliding window implementations, the dashboard&#x27;s firing/drawing code, and the three remaining test files now walked with real code, new constructs explained at first use, and a runnable edit-and-predict exercise each. Section 27 coverage statement updated to match. No code changes; pushes still paused.
+</p>
+<h1>Update - 12 Nov 2026, ~12:20 PM IST: the four feature upgrades (M5-M7)
+</h1>
+<p>The four upgrades Shubhra picked on 12 Nov (options 9, 10, 14 and 15 from the upgrade menu) are built, tested and live. M5 (commit 9ca3d1e, &quot;Add tiered API-key plans and cost-based limiting&quot;): /api/ledger serves free (10/min) and pro (100/min) plans with per-tenant buckets and plan-aware 429s; /api/heavy spends 3 tokens per call. Live-verified: the free key exhausts at exactly 10, the pro key continues, the heavy route rejects the 4th call with a 12-second wait. M6 (commit 6ff3b05, &quot;Add escalating penalties (jail) to the login route&quot;): rejections double the block (30s, 60s, ... capped at 30 min), a success forgives, and jail state lives in the shared store so it holds across isolates. Live-verified: the 6th wrong login waits 30s, a different username is unaffected. M7 (commit ca07d44, &quot;Add a live concurrency proof for the shared store&quot;; 0fced17 wording precision): the dashboard&#x27;s Concurrency proof button fires 20 parallel requests at a fresh limit-10 key - exactly 10 allowed, live-verified in a real browser (screenshot saved). The endpoint rate-limits itself to 10 runs/min per visitor. Test suite grew from 20 to 35 tests, all passing; Documentation sections 29-32 teach each upgrade end to end (mechanism, code, alternatives, failure cases, tests).
+</p>
