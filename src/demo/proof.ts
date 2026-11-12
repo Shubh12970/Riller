@@ -51,8 +51,9 @@ export async function runAtomicityProof(
     rejected: n - allowed,
     passed: allowed === k,
     explanation:
-      `${n} parallel requests, one bucket of ${k}. Exactly ${k} were allowed: the shared store ` +
-      '(a single-threaded Durable Object) runs every check-and-spend atomically, so no two ' +
-      'requests could spend the same token.',
+      `${n} parallel requests, one bucket of ${k}: exactly ${k} were allowed, the behaviour the ` +
+      'design predicts. The atomicity guarantee itself comes from the platform - a single-threaded ' +
+      'Durable Object serializes every check-and-spend (Cloudflare input gates) - and this run ' +
+      'demonstrates that behaviour on a bounded burst; it does not by itself prove the guarantee.',
   };
 }

@@ -196,7 +196,7 @@ async function runProof() {
       return;
     }
     const cls = data.passed ? 'ok' : 'bad';
-    el.innerHTML = `<span class="${cls}">${data.allowed} allowed, ${data.rejected} rejected (limit ${data.limit})${data.passed ? ' - exactly the limit, so the check-and-spend is atomic' : ''}</span>`;
+    el.innerHTML = `<span class="${cls}">${data.allowed} allowed, ${data.rejected} rejected (limit ${data.limit})${data.passed ? ' - exactly the limit, the behaviour the atomic store guarantees' : ''}</span>`;
   } catch (e) {
     el.textContent = 'Request failed - try again.';
   }
