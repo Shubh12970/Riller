@@ -40,6 +40,8 @@ interface ConsumeBody {
   key: string;
   capacity: number;
   refillPerSecond: number;
+  /** Tokens this request spends (default 1); must be within capacity. */
+  cost?: number;
 }
 
 interface StatsSlot {
@@ -71,9 +73,11 @@ export class RateLimiterDO {
   }
 
   private async handleConsume(body: ConsumeBody): Promise<Response> {
+    const cost = body.cost ?? 1;
     if (!body || typeof body.limiter !== 'string' || typeof body.key !== 'string'
-      || !(body.capacity >= 1) || !(body.refillPerSecond > 0)) {
-      return json({ error: 'consume needs { limiter, key, capacity >= 1, refillPerSecond > 0 }' }, 400);
+      || !(body.capacity >= 1) || !(body.refillPerSecond > 0)
+      || !(cost >= 1) || cost > body.capacity) {
+      return json({ error: 'consume needs { limiter, key, capacity >= 1, refillPerSecond > 0, 1 <= cost <= capacity }' }, 400);
     }
 
     const now = Date.now();
@@ -89,6 +93,7 @@ export class RateLimiterDO {
       body.capacity,
       body.refillPerSecond,
       now,
+      cost,
     );
 
     this.cache.set(storageKey, state);

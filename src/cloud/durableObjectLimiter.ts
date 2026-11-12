@@ -34,7 +34,7 @@ export class DurableObjectLimiter implements RateLimiter {
     this.refillPerSecond = refillPerSecond;
   }
 
-  async consume(key: string): Promise<RateLimitResult> {
+  async consume(key: string, cost = 1): Promise<RateLimitResult> {
     const res = await this.stub.fetch('https://rate-limiter-do/consume', {
       method: 'POST',
       body: JSON.stringify({
@@ -42,6 +42,7 @@ export class DurableObjectLimiter implements RateLimiter {
         key,
         capacity: this.limit,
         refillPerSecond: this.refillPerSecond,
+        cost,
       }),
     });
     if (!res.ok) {

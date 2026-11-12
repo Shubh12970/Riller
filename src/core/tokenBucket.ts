@@ -2,10 +2,12 @@
  * Token bucket - the algorithm behind most production API rate limits.
  *
  * Picture a bucket that holds up to `capacity` tokens. Tokens drip in at a
- * steady `refillPerSecond` rate. Every request spends one token. An empty
- * bucket means "wait". This allows short bursts (spend saved-up tokens) while
- * capping the long-term average (the refill rate), which is exactly the
- * behaviour APIs want and why it beats a plain per-minute counter.
+ * steady `refillPerSecond` rate. Every request spends `cost` tokens (one by
+ * default; expensive routes spend more, so the bucket measures real resource
+ * use, not just request count). An empty bucket means "wait". This allows
+ * short bursts (spend saved-up tokens) while capping the long-term average
+ * (the refill rate), which is exactly the behaviour APIs want and why it
+ * beats a plain per-minute counter.
  *
  * The actual math lives in `consumeToken`, a pure function: given a stored
  * bucket state and the time, it returns the new state and the decision. Both
@@ -36,6 +38,16 @@ export function assertValidBucketConfig(capacity: number, refillPerSecond: numbe
 }
 
 /**
+ * A request spends `cost` tokens. A cost above capacity could never be
+ * allowed (the bucket can never hold that much), so reject it as a config
+ * error instead of silently denying every such request forever.
+ */
+export function assertValidCost(cost: number, capacity: number): void {
+  if (!(cost >= 1)) throw new Error('cost must be at least 1');
+  if (cost > capacity) throw new Error('cost cannot exceed capacity');
+}
+
+/**
  * The whole token-bucket decision in one pure step. No I/O, no globals: the
  * same code runs in the local limiter, in tests, and inside the Durable
  * Object, which is what makes the shared store trustworthy by construction.
@@ -45,15 +57,17 @@ export function consumeToken(
   capacity: number,
   refillPerSecond: number,
   nowMs: number,
+  cost = 1,
 ): { state: BucketState; result: RateLimitResult } {
+  assertValidCost(cost, capacity);
   // Clamp to 0: a backwards clock jump must never create tokens.
   const elapsedSeconds = Math.max(0, (nowMs - state.lastRefillMs) / 1000);
   const tokens = Math.min(capacity, state.tokens + elapsedSeconds * refillPerSecond);
 
-  if (tokens >= 1) {
-    // Compute reset AFTER the spend: a full bucket that just spent a token
+  if (tokens >= cost) {
+    // Compute reset AFTER the spend: a full bucket that just spent
     // is no longer full, so its reset time must be non-zero.
-    const afterSpend = tokens - 1;
+    const afterSpend = tokens - cost;
     return {
       state: { tokens: afterSpend, lastRefillMs: nowMs },
       result: {
@@ -66,7 +80,7 @@ export function consumeToken(
     };
   }
 
-  const secondsToWait = (1 - tokens) / refillPerSecond;
+  const secondsToWait = (cost - tokens) / refillPerSecond;
   return {
     state: { tokens, lastRefillMs: nowMs },
     result: {
@@ -104,10 +118,10 @@ export class TokenBucketLimiter implements RateLimiter {
     this.now = options.now ?? Date.now;
   }
 
-  async consume(key: string): Promise<RateLimitResult> {
+  async consume(key: string, cost = 1): Promise<RateLimitResult> {
     const now = this.now();
     const current = this.store.get(key) ?? { tokens: this.capacity, lastRefillMs: now };
-    const { state, result } = consumeToken(current, this.capacity, this.refillPerSecond, now);
+    const { state, result } = consumeToken(current, this.capacity, this.refillPerSecond, now, cost);
     this.store.set(key, state);
     return result;
   }

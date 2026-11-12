@@ -7,8 +7,15 @@
  *   GET  /api/data   loose read endpoint: 30 requests burst, refilling at 10/sec
  *   POST /api/login  strict on purpose: 5/min per IP+username, so password
  *                    guessing becomes impractical while real users never notice
- *   GET  /api/heavy  per-API-key: 10/min; each x-api-key gets its own bucket,
- *                    so one noisy caller cannot starve the others
+ *   GET  /api/heavy  per-API-key: 10/min and each call costs 3 tokens
+ *                    (cost-based limiting: an expensive route spends more of
+ *                    your budget than a cheap one); each x-api-key gets its
+ *                    own bucket, so one noisy caller cannot starve the others
+ *   GET  /api/ledger tiered plans: a realistic paid-API endpoint. The caller's
+ *                    x-api-key selects the free plan (10/min) or the pro plan
+ *                    (100/min); unknown keys get free. Two keys side by side
+ *                    exhaust at visibly different limits, and one tenant's
+ *                    traffic never touches another tenant's bucket.
  *
  * GET /__rl/stats.json feeds the live dashboard in public/index.html.
  *
@@ -24,6 +31,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { TokenBucketLimiter } from '../core/tokenBucket.js';
 import { MemoryStore } from '../core/memoryStore.js';
+import { PLANS, planForApiKey } from '../core/plans.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import type { RateLimiter } from '../core/types.js';
 import { StatsRecorder } from './stats.js';
@@ -132,10 +140,50 @@ export function buildApp(options: BuildAppOptions = {}) {
     rateLimit({
       limiter: heavyLimiter,
       keyGenerator: (req) => req.header('x-api-key') ?? req.ip ?? 'unknown-ip',
+      // Cost-based limiting: this route is expensive, so each call spends
+      // 3 of the caller's 10 tokens - three calls, then wait.
+      cost: 3,
       onDecision: hook,
     }),
     (_req, res) => {
       res.json({ ok: true, result: 'Expensive computation finished.' });
+    },
+  );
+
+  // Tiered plans: one limiter instance per plan, picked per request from the
+  // caller's API key. The DO keys buckets by limiter id + caller key, so a
+  // free tenant and a pro tenant never share a bucket.
+  const planLimiters: Record<string, RateLimiter> = {};
+  for (const plan of Object.values(PLANS)) {
+    planLimiters[plan.name] = makeLimiter({
+      id: `ledger:${plan.name}`,
+      capacity: plan.capacity,
+      refillPerSecond: plan.refillPerSecond,
+    });
+  }
+  const planOf = (req: express.Request) => planForApiKey(req.header('x-api-key'));
+
+  app.get(
+    '/api/ledger',
+    rateLimit({
+      limiter: (req) => planLimiters[planOf(req).name],
+      keyGenerator: (req) => req.header('x-api-key') ?? req.ip ?? 'unknown-ip',
+      onDecision: hook,
+      rejectedExtra: (req) => {
+        const plan = planOf(req);
+        return {
+          plan: plan.name,
+          limit_per_minute: plan.capacity,
+          ...(plan.name === 'free'
+            ? { upgrade: 'A pro API key raises this limit to 100/minute (try demo key: demo-pro-key).' }
+            : {}),
+        };
+      },
+    }),
+    (req, res) => {
+      const plan = planOf(req);
+      res.setHeader('X-RateLimit-Plan', plan.name);
+      res.json({ ok: true, plan: plan.name, ledger: ['payment-1', 'payment-2'] });
     },
   );
 

@@ -28,7 +28,12 @@ export interface RateLimitDecision {
 }
 
 export interface RateLimitOptions {
-  limiter: RateLimiter;
+  /**
+   * The limiter to spend from, or a function picking one per request.
+   * A function is how tiered plans work: the same route spends from the
+   * free-plan bucket or the pro-plan bucket depending on the caller's key.
+   */
+  limiter: RateLimiter | ((req: Request) => RateLimiter);
   /**
    * Who is being limited. Default: the caller's IP. For authenticated routes
    * pass something like (req) => req.header('x-api-key') ?? req.ip.
@@ -36,8 +41,19 @@ export interface RateLimitOptions {
    * has no account yet - keying by user id alone would not slow them down.
    */
   keyGenerator?: (req: Request) => string;
+  /**
+   * Tokens this route spends per request (default 1), or a function of the
+   * request. Cost-based limiting: expensive routes spend more, so the bucket
+   * measures resource use, not just request count.
+   */
+  cost?: number | ((req: Request) => number);
   /** Observability hook: the demo dashboard records every decision through this. */
   onDecision?: (decision: RateLimitDecision) => void;
+  /**
+   * Extra fields merged into the 429 body - the tiered-plans route uses this
+   * to name the caller's plan and how to get a higher limit.
+   */
+  rejectedExtra?: (req: Request) => Record<string, unknown>;
 }
 
 export function rateLimit(options: RateLimitOptions) {
@@ -46,7 +62,9 @@ export function rateLimit(options: RateLimitOptions) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const key = keyGenerator(req);
-      const result = await options.limiter.consume(key);
+      const limiter = typeof options.limiter === 'function' ? options.limiter(req) : options.limiter;
+      const cost = typeof options.cost === 'function' ? options.cost(req) : (options.cost ?? 1);
+      const result = await limiter.consume(key, cost);
 
       res.setHeader('X-RateLimit-Limit', result.limit);
       res.setHeader('X-RateLimit-Remaining', result.remaining);
@@ -59,6 +77,7 @@ export function rateLimit(options: RateLimitOptions) {
         res.status(429).json({
           error: 'Too many requests',
           retry_after_seconds: result.retryAfterSeconds,
+          ...(options.rejectedExtra?.(req) ?? {}),
         });
         return;
       }

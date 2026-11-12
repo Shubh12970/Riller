@@ -84,3 +84,30 @@ describe('TokenBucketLimiter', () => {
     expect(first.resetSeconds).toBeGreaterThan(0);
   });
 });
+
+describe('cost-based spending', () => {
+  it('spends `cost` tokens per request and reports the remaining budget', async () => {
+    const clock = makeClock();
+    const limiter = makeLimiter(clock, 10, 1);
+    const r1 = await limiter.consume('user-1', 3);
+    expect(r1.allowed).toBe(true);
+    expect(r1.remaining).toBe(7);
+    const r2 = await limiter.consume('user-1', 3);
+    expect(r2.remaining).toBe(4);
+  });
+
+  it('rejects when tokens < cost, with retry-after for the missing tokens', async () => {
+    const clock = makeClock();
+    const limiter = makeLimiter(clock, 10, 1); // 1 token per second
+    await limiter.consume('user-1', 9); // 1 token left
+    const denied = await limiter.consume('user-1', 3); // needs 3, has 1
+    expect(denied.allowed).toBe(false);
+    expect(denied.retryAfterSeconds).toBe(2); // (3 - 1) tokens / 1 per second
+  });
+
+  it('refuses a cost above capacity: such a request could never be allowed', async () => {
+    const clock = makeClock();
+    const limiter = makeLimiter(clock, 5, 1);
+    await expect(limiter.consume('user-1', 6)).rejects.toThrow('cost cannot exceed capacity');
+  });
+});

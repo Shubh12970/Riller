@@ -27,6 +27,11 @@ export interface RateLimitResult {
 export interface RateLimiter {
   /** The configured limit, exposed so middleware can emit it as a header. */
   readonly limit: number;
-  /** Spend one request for `key`. Pure decision: no I/O of its own, no HTTP. */
-  consume(key: string): Promise<RateLimitResult>;
+  /**
+   * Spend `cost` tokens for `key` (default 1). Expensive routes spend more
+   * than one token - a heavy report might cost 5, a cheap lookup 1 - so the
+   * bucket measures real resource use, not just request count. Pure decision:
+   * no I/O of its own, no HTTP.
+   */
+  consume(key: string, cost?: number): Promise<RateLimitResult>;
 }

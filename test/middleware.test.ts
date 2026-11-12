@@ -85,3 +85,23 @@ describe('rateLimit middleware', () => {
     expect(handlerCalls).toBe(1); // only the first request got through
   });
 });
+
+describe('cost option', () => {
+  it('decrements X-RateLimit-Remaining by the route cost', async () => {
+    const app = express();
+    app.use(express.json());
+    const limiter = new TokenBucketLimiter({
+      capacity: 10,
+      refillPerSecond: 1 / 60,
+      store: new MemoryStore(),
+    });
+    app.get(
+      '/pricey',
+      rateLimit({ limiter, keyGenerator: (req) => req.header('x-api-key') ?? 'anon', cost: 3 }),
+      (_req, res) => res.json({ ok: true }),
+    );
+    const res = await request(app).get('/pricey').set('x-api-key', 'key-a');
+    expect(res.status).toBe(200);
+    expect(res.headers['x-ratelimit-remaining']).toBe('7');
+  });
+});
