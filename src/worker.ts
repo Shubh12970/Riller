@@ -23,7 +23,8 @@ import http from 'node:http';
 import { httpServerHandler } from 'cloudflare:node';
 import { buildApp, type LimiterSpec } from './demo/server.js';
 import { DurableObjectLimiter, type DurableObjectStubLike } from './cloud/durableObjectLimiter.js';
-import type { RateLimiter } from './core/types.js';
+import { runAtomicityProof, PROOF_LIMIT, PROOF_REQUESTS } from './demo/proof.js';
+import type { RateLimiter, RateLimitResult } from './core/types.js';
 
 export { RateLimiterDO } from './cloud/durableObject.js';
 
@@ -35,13 +36,47 @@ interface Env {
 }
 
 export default {
-  fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env): Promise<Response> {
     const stub = env.RATE_LIMITER.get(env.RATE_LIMITER.idFromName('global'));
 
     const url = new URL(request.url);
     if (url.pathname === '/__rl/stats.json') {
       // Straight from the shared store: global allowed/rejected counts.
       return stub.fetch('https://rate-limiter-do/stats');
+    }
+
+    if (url.pathname === '/__rl/atomicity-proof' && request.method === 'POST') {
+      // The proof endpoint is itself rate-limited per caller (10 runs/min),
+      // because a public demo defends itself.
+      const gate = new DurableObjectLimiter(stub, 'proof', 10, 10 / 60);
+      const ip = request.headers.get('cf-connecting-ip') ?? 'unknown-ip';
+      const verdict = await gate.consume(ip);
+      if (!verdict.allowed) {
+        return Response.json(
+          { error: 'Too many proof runs', retry_after_seconds: verdict.retryAfterSeconds },
+          { status: 429, headers: { 'retry-after': String(verdict.retryAfterSeconds) } },
+        );
+      }
+      // A fresh throwaway key per run: the proof never touches a real bucket.
+      const probeKey = `probe:${crypto.randomUUID()}`;
+      const outcome = await runAtomicityProof(
+        () =>
+          stub
+            .fetch('https://rate-limiter-do/consume', {
+              method: 'POST',
+              body: JSON.stringify({
+                limiter: 'probe',
+                key: probeKey,
+                capacity: PROOF_LIMIT,
+                refillPerSecond: 1 / 3600, // no refill during the burst
+                cost: 1,
+              }),
+            })
+            .then((r) => r.json()) as Promise<RateLimitResult>,
+        PROOF_REQUESTS,
+        PROOF_LIMIT,
+      );
+      return Response.json(outcome);
     }
 
     const makeLimiter = (spec: LimiterSpec): RateLimiter =>

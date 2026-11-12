@@ -33,6 +33,7 @@ import { TokenBucketLimiter } from '../core/tokenBucket.js';
 import { MemoryStore } from '../core/memoryStore.js';
 import { PLANS, planForApiKey } from '../core/plans.js';
 import { JailingLimiter } from '../core/jail.js';
+import { runAtomicityProof, PROOF_LIMIT, PROOF_REQUESTS } from './proof.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import type { RateLimiter } from '../core/types.js';
 import { StatsRecorder } from './stats.js';
@@ -197,6 +198,26 @@ export function buildApp(options: BuildAppOptions = {}) {
       const plan = planOf(req);
       res.setHeader('X-RateLimit-Plan', plan.name);
       res.json({ ok: true, plan: plan.name, ledger: ['payment-1', 'payment-2'] });
+    },
+  );
+
+  // The concurrency proof: fire 20 parallel requests at a fresh limit-10
+  // bucket and show exactly 10 allowed. Locally the bucket is in-process
+  // memory; on Cloudflare the worker answers this route from the shared
+  // Durable Object, which is where the guarantee actually matters.
+  const proofGate = makeLimiter({ id: 'proof', capacity: 10, refillPerSecond: 10 / 60 });
+  app.post(
+    '/__rl/atomicity-proof',
+    rateLimit({ limiter: proofGate, keyGenerator: (req) => req.ip ?? 'unknown-ip' }),
+    async (_req, res) => {
+      const bucket = new TokenBucketLimiter({
+        capacity: PROOF_LIMIT,
+        refillPerSecond: 1 / 3600,
+        store: new MemoryStore(),
+      });
+      const key = `probe:${crypto.randomUUID()}`;
+      const outcome = await runAtomicityProof(() => bucket.consume(key), PROOF_REQUESTS, PROOF_LIMIT);
+      res.json(outcome);
     },
   );
 
