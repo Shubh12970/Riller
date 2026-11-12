@@ -26,10 +26,12 @@
  */
 
 import { consumeToken, type BucketState } from '../core/tokenBucket.js';
+import { activeBlockSeconds, nextPenalty, type PenaltyState } from '../core/jail.js';
 import { MemoryStore } from '../core/memoryStore.js';
 import type { RateLimitResult } from '../core/types.js';
 
 const BUCKET_PREFIX = 'bucket:';
+const PENALTY_PREFIX = 'penalty:';
 const STATS_PREFIX = 'stats:';
 const STATS_WINDOW_SECONDS = 120;
 const IDLE_PRUNE_MS = 10 * 60 * 1000;
@@ -42,6 +44,8 @@ interface ConsumeBody {
   refillPerSecond: number;
   /** Tokens this request spends (default 1); must be within capacity. */
   cost?: number;
+  /** Escalating penalties: rejections lengthen the next block. */
+  jail?: boolean;
 }
 
 interface StatsSlot {
@@ -82,6 +86,22 @@ export class RateLimiterDO {
 
     const now = Date.now();
     const storageKey = `${BUCKET_PREFIX}${body.limiter}:${body.key}`;
+    const penaltyKey = `${PENALTY_PREFIX}${body.limiter}:${body.key}`;
+
+    // Jail check first: an active block refuses without touching the bucket,
+    // and the record lives in shared storage so it holds across isolates.
+    const penalty = body.jail ? await this.state.storage.get<PenaltyState>(penaltyKey) : undefined;
+    const blocked = body.jail ? activeBlockSeconds(penalty, now) : 0;
+    if (blocked > 0) {
+      await this.record(false, now);
+      return json({
+        allowed: false,
+        limit: body.capacity,
+        remaining: 0,
+        retryAfterSeconds: blocked,
+        resetSeconds: blocked,
+      } satisfies RateLimitResult);
+    }
 
     let current = this.cache.get(storageKey);
     if (!current) {
@@ -98,6 +118,18 @@ export class RateLimiterDO {
 
     this.cache.set(storageKey, state);
     await this.state.storage.put(storageKey, state);
+
+    if (body.jail) {
+      if (result.allowed) {
+        // A success clears the record: real users are forgiven immediately.
+        if (penalty?.violations) await this.state.storage.delete(penaltyKey);
+      } else {
+        const next = nextPenalty(penalty, now);
+        await this.state.storage.put(penaltyKey, next);
+        result.retryAfterSeconds = Math.max(result.retryAfterSeconds, activeBlockSeconds(next, now));
+      }
+    }
+
     await this.record(result.allowed, now);
     await this.pruneIdleBucketsIfDue(now);
     return json(result satisfies RateLimitResult);
@@ -143,6 +175,12 @@ export class RateLimiterDO {
     const idle: string[] = [];
     for (const [key, value] of stored) {
       if (nowMs - value.lastRefillMs > IDLE_PRUNE_MS) idle.push(key);
+    }
+    // Jail records idle out too: once a block has been over for the idle
+    // window, the grudge is dropped and memory stays bounded.
+    const penalties = await this.state.storage.list<PenaltyState>({ prefix: PENALTY_PREFIX });
+    for (const [key, value] of penalties) {
+      if (nowMs - value.blockedUntilMs > IDLE_PRUNE_MS) idle.push(key);
     }
     if (idle.length > 0) await this.state.storage.delete(idle);
   }

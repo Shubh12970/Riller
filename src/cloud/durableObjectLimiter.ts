@@ -29,6 +29,8 @@ export class DurableObjectLimiter implements RateLimiter {
     private readonly limiterId: string,
     capacity: number,
     refillPerSecond: number,
+    /** Escalating penalties, enforced inside the shared store. */
+    private readonly jail = false,
   ) {
     this.limit = capacity;
     this.refillPerSecond = refillPerSecond;
@@ -43,6 +45,7 @@ export class DurableObjectLimiter implements RateLimiter {
         capacity: this.limit,
         refillPerSecond: this.refillPerSecond,
         cost,
+        jail: this.jail,
       }),
     });
     if (!res.ok) {

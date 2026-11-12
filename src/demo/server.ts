@@ -32,6 +32,7 @@ import path from 'node:path';
 import { TokenBucketLimiter } from '../core/tokenBucket.js';
 import { MemoryStore } from '../core/memoryStore.js';
 import { PLANS, planForApiKey } from '../core/plans.js';
+import { JailingLimiter } from '../core/jail.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import type { RateLimiter } from '../core/types.js';
 import { StatsRecorder } from './stats.js';
@@ -40,6 +41,13 @@ export interface LimiterSpec {
   id: string;
   capacity: number;
   refillPerSecond: number;
+  /**
+   * Escalating penalties: rejections lengthen the next block exponentially.
+   * Used on the login route, where password spraying is the threat. The
+   * penalty state lives in the same store as the buckets (shared on
+   * Cloudflare), so jail holds across every isolate.
+   */
+  jail?: boolean;
 }
 
 export interface BuildAppOptions {
@@ -97,12 +105,14 @@ export function buildApp(options: BuildAppOptions = {}) {
   const stats = options.stats === undefined ? new StatsRecorder() : options.stats;
   const makeLimiter =
     options.makeLimiter ??
-    ((spec: LimiterSpec) =>
-      new TokenBucketLimiter({
+    ((spec: LimiterSpec) => {
+      const bucket = new TokenBucketLimiter({
         capacity: spec.capacity,
         refillPerSecond: spec.refillPerSecond,
         store: new MemoryStore(),
-      }));
+      });
+      return spec.jail ? new JailingLimiter(bucket) : bucket;
+    });
 
   const app = express();
   app.use(jsonBody());
@@ -112,7 +122,10 @@ export function buildApp(options: BuildAppOptions = {}) {
     : undefined;
 
   const dataLimiter = makeLimiter({ id: 'data', capacity: 30, refillPerSecond: 10 });
-  const loginLimiter = makeLimiter({ id: 'login', capacity: 5, refillPerSecond: 5 / 60 });
+  // jail: rejections escalate (30s, 60s, 120s, ... capped at 30 min), so a
+  // password-spraying attacker pays exponentially while a real user's one
+  // fumbled login costs seconds and clears on success.
+  const loginLimiter = makeLimiter({ id: 'login', capacity: 5, refillPerSecond: 5 / 60, jail: true });
   const heavyLimiter = makeLimiter({ id: 'heavy', capacity: 10, refillPerSecond: 10 / 60 });
 
   app.get(

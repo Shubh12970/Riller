@@ -45,7 +45,7 @@ export default {
     }
 
     const makeLimiter = (spec: LimiterSpec): RateLimiter =>
-      new DurableObjectLimiter(stub, spec.id, spec.capacity, spec.refillPerSecond);
+      new DurableObjectLimiter(stub, spec.id, spec.capacity, spec.refillPerSecond, spec.jail ?? false);
     const handler = httpServerHandler(http.createServer(buildApp({ stats: null, makeLimiter })));
     return handler.fetch(request);
   },
